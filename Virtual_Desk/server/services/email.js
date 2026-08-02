@@ -1,27 +1,59 @@
+/**
+ * ============================================================
+ *  EMAIL SERVICE — services/email.js
+ * ============================================================
+ *  Handles sending automated emails using Nodemailer.
+ *
+ *  WHAT IT DOES:
+ *  - Creates a reusable email transporter (SMTP connection)
+ *  - sendReminderEmail: sends appointment reminder emails
+ *  - sendReviewRequestEmail: sends review request emails
+ *
+ *  KEY CONCEPTS TO LEARN:
+ *  1. Transporter: a Nodemailer object that manages the SMTP connection.
+ *     Created once and reused (singleton pattern).
+ *  2. Ethereal Fallback: if no SMTP is configured, it uses Ethereal
+ *     (a fake SMTP service) so you can preview emails in development.
+ *  3. HTML Emails: emails are sent as HTML for nice formatting.
+ * ============================================================
+ */
+
+// Nodemailer: the email sending library for Node.js
 import nodemailer from "nodemailer";
 
 /**
- * Creates a reusable Nodemailer transporter.
- * Uses SMTP settings from environment variables.
- * Falls back to a dummy Ethereal test account if no SMTP is configured.
+ * Transporter singleton — created lazily on first use.
+ * `null` until getTransporter() is called.
  */
 let transporter = null;
 
+/**
+ * getTransporter — creates (or returns) the email transporter.
+ *
+ * Two modes:
+ * 1. Real SMTP: if SMTP_HOST and SMTP_USER are set in .env
+ * 2. Ethereal test: creates a fake email account for development
+ *    (emails are viewable at ethereal.email)
+ */
 async function getTransporter() {
+  // If already created, reuse it (don't create a new connection each time)
   if (transporter) return transporter;
 
   if (process.env.SMTP_HOST && process.env.SMTP_USER) {
+    // Real SMTP configuration from environment variables
     transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: parseInt(process.env.SMTP_PORT || "587", 10),
-      secure: process.env.SMTP_SECURE === "true",
+      secure: process.env.SMTP_SECURE === "true", // true for port 465, false for 587
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
     });
   } else {
-    // Fallback: create Ethereal test account (emails are viewable at ethereal.email)
+    // Fallback: create an Ethereal test account
+    // Ethereal is a fake SMTP service — emails aren't actually delivered,
+    // but you can view them at ethereal.email to preview the HTML.
     const testAccount = await nodemailer.createTestAccount();
     transporter = nodemailer.createTransport({
       host: "smtp.ethereal.email",
@@ -39,11 +71,21 @@ async function getTransporter() {
 }
 
 /**
- * Send a booking reminder email.
+ * sendReminderEmail — sends an appointment reminder email.
+ * Used by the scheduler for tomorrow's bookings.
+ *
+ * @param {Object} params
+ * @param {string} params.to — recipient email
+ * @param {string} params.name — customer name
+ * @param {string} params.businessName — business name
+ * @param {string} params.service — service name
+ * @param {string} params.date — appointment date
+ * @param {string} params.time — appointment time
  */
 export async function sendReminderEmail({ to, name, businessName, service, date, time }) {
   const transport = await getTransporter();
 
+  // sendMail: sends the email with subject + HTML body
   const info = await transport.sendMail({
     from: `"${businessName}" <${process.env.SMTP_FROM || "noreply@frontdesk.app"}>`,
     to,
@@ -66,7 +108,7 @@ export async function sendReminderEmail({ to, name, businessName, service, date,
     `,
   });
 
-  // Log Ethereal preview URL in development
+  // In development, log the Ethereal preview URL so you can view the email
   if (process.env.NODE_ENV !== "production") {
     console.log("📧 Reminder email preview:", nodemailer.getTestMessageUrl(info));
   }
@@ -75,7 +117,16 @@ export async function sendReminderEmail({ to, name, businessName, service, date,
 }
 
 /**
- * Send a review request email.
+ * sendReviewRequestEmail — sends a review request email.
+ * Used by the scheduler for yesterday's completed bookings.
+ *
+ * @param {Object} params
+ * @param {string} params.to — recipient email
+ * @param {string} params.name — customer name
+ * @param {string} params.businessName — business name
+ * @param {string} params.service — service name
+ * @param {string} params.date — appointment date
+ * @param {string} params.reviewUrl — link to the review page
  */
 export async function sendReviewRequestEmail({ to, name, businessName, service, date, reviewUrl }) {
   const transport = await getTransporter();

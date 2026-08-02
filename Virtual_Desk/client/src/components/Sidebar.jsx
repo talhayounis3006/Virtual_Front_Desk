@@ -1,6 +1,31 @@
+/**
+ * ============================================================
+ *  SIDEBAR — components/Sidebar.jsx
+ * ============================================================
+ *  The left sidebar navigation for the business dashboard.
+ *
+ *  WHAT IT CONTAINS:
+ *  - FrontDesk brand/logo
+ *  - Navigation links: Dashboard, Bookings, Services, AI Chat Logs, Settings
+ *  - User info (avatar with initials, name, role)
+ *  - Sign out button
+ *
+ *  KEY CONCEPTS TO LEARN:
+ *  1. useLocation: determines which nav link is "active" (highlighted)
+ *  2. Conditional rendering: hides the sidebar for customer users
+ *  3. Avatar initials: computed from the user's name
+ *  4. ownerLinks array: data-driven navigation (map over an array)
+ * ============================================================
+ */
+
+// React Router hooks
 import { Link, useLocation, useNavigate } from "react-router-dom";
+// Auth context
 import { useAuth } from "../context/AuthContext.jsx";
 
+/* ---- SVG ICON COMPONENTS ---- */
+
+// Building icon — the FrontDesk logo
 function LogoIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -15,6 +40,7 @@ function LogoIcon() {
   );
 }
 
+// Grid icon — dashboard
 function DashboardIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -26,6 +52,7 @@ function DashboardIcon() {
   );
 }
 
+// Calendar icon — bookings
 function BookingsIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -43,6 +70,7 @@ function BookingsIcon() {
   );
 }
 
+// Gear icon — services
 function ServicesIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -52,6 +80,7 @@ function ServicesIcon() {
   );
 }
 
+// Chat bubble icon — AI chat logs
 function ChatIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -60,6 +89,7 @@ function ChatIcon() {
   );
 }
 
+// Gear icon — settings
 function SettingsIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -69,6 +99,8 @@ function SettingsIcon() {
   );
 }
 
+// Navigation links for owner/staff users
+// Each link has: URL path, label, and icon component
 const ownerLinks = [
   { to: "/dashboard", label: "Dashboard", icon: DashboardIcon },
   { to: "/bookings", label: "Bookings", icon: BookingsIcon },
@@ -77,27 +109,41 @@ const ownerLinks = [
   { to: "/settings", label: "Settings", icon: SettingsIcon },
 ];
 
+/**
+ * Sidebar — the left navigation for the business dashboard.
+ * Rendered by OwnerRoute in App.jsx.
+ */
 export default function Sidebar() {
+  // Auth state
   const { user, logout } = useAuth();
+  // Current URL path (to highlight the active link)
   const location = useLocation();
+  // Programmatic navigation
   const navigate = useNavigate();
 
+  // Hide the sidebar for customer users (they don't have a dashboard)
   if (!user || user.role === "customer") return null;
 
+  /**
+   * handleLogout — logs out and redirects to the login page.
+   */
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
 
+  // Compute the user's initials for the avatar
+  // "John Smith" → "JS"
   const initials = user.name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+    .split(" ")          // ["John", "Smith"]
+    .map((n) => n[0])    // ["J", "S"]
+    .join("")            // "JS"
+    .toUpperCase()       // "JS"
+    .slice(0, 2);        // max 2 characters
 
   return (
     <aside className="sidebar">
+      {/* Brand/logo */}
       <div className="sidebar-brand">
         <h1>
           <LogoIcon />
@@ -108,6 +154,7 @@ export default function Sidebar() {
         </h1>
       </div>
 
+      {/* Navigation links */}
       <nav className="sidebar-nav">
         <div className="sidebar-section">Main</div>
         {ownerLinks.map((link) => {
@@ -116,6 +163,7 @@ export default function Sidebar() {
             <Link
               key={link.to}
               to={link.to}
+              // Add "active" class if this link matches the current URL
               className={`sidebar-link ${location.pathname === link.to ? "active" : ""}`}
             >
               <Icon />
@@ -125,6 +173,7 @@ export default function Sidebar() {
         })}
       </nav>
 
+      {/* Footer: user info + sign out */}
       <div className="sidebar-footer">
         <div className="sidebar-user">
           <div className="sidebar-avatar">{initials}</div>

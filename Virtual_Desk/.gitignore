@@ -1,7 +1,25 @@
+# ============================================================
+#  GITIGNORE — .gitignore
+# ============================================================
+#  Tells Git which files/folders to NOT track in version control.
+#  These are typically generated files, secrets, or dependencies
+#  that shouldn't be committed to the repository.
+# ============================================================
+
+# Dependencies — can be reinstalled with `npm install`
 node_modules/
+
+# Environment variables — contain secrets (API keys, passwords)
+# NEVER commit .env files to Git!
 .env
 .env.local
+
+# Build output — generated when you run `npm run build`
 dist/
 build/
+
+# macOS system files
 .DS_Store
+
+# Log files
 *.log

@@ -1,8 +1,33 @@
+/**
+ * ============================================================
+ *  ROOT APP COMPONENT — App.jsx
+ * ============================================================
+ *  The main application component that sets up routing.
+ *
+ *  WHAT IT DOES:
+ *  1. Sets up React Router (BrowserRouter) for client-side navigation
+ *  2. Wraps everything in AuthProvider (global auth state)
+ *  3. Defines all routes and which components they render
+ *  4. Defines route protection wrappers (OwnerRoute, PublicRoute)
+ *  5. Contains the landing page (hero section) markup
+ *
+ *  KEY CONCEPTS TO LEARN:
+ *  - React Router: <Routes> and <Route> define URL → component mappings
+ *  - Route Guards: OwnerRoute redirects customers away from owner pages
+ *  - Context Provider: AuthProvider makes auth state available everywhere
+ *  - Nested Layouts: OwnerRoute renders Sidebar + Navbar + content
+ * ============================================================
+ */
+
+// React Router imports for navigation
 import { BrowserRouter, Routes, Route, Navigate, Link } from "react-router-dom";
+// Auth context — provides user state and login/logout functions
 import { AuthProvider, useAuth } from "./context/AuthContext.jsx";
-import Sidebar from "./components/Sidebar.jsx";
-import Navbar from "./components/Navbar.jsx";
-import DashboardNavbar from "./components/DashboardNavbar.jsx";
+// Layout components
+import Sidebar from "./components/Sidebar.jsx";           // left sidebar for dashboard
+import Navbar from "./components/Navbar.jsx";             // top nav for public pages
+import DashboardNavbar from "./components/DashboardNavbar.jsx"; // top nav for dashboard
+// Page components
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
@@ -14,7 +39,13 @@ import PublicBooking from "./pages/PublicBooking.jsx";
 import BookingSuccess from "./pages/BookingSuccess.jsx";
 import ImageSlider from "./components/ImageSlider.jsx";
 
-/* ---- SVG Icons ---- */
+/* ============================================================
+ *  SVG ICON COMPONENTS
+ *  Small inline SVG icons used on the landing page.
+ *  They're defined as components so they can be reused.
+ * ============================================================ */
+
+// Building icon — represents the "front desk" concept
 function BuildingIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -29,6 +60,7 @@ function BuildingIcon() {
   );
 }
 
+// Robot icon — represents the AI assistant
 function RobotIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -42,6 +74,7 @@ function RobotIcon() {
   );
 }
 
+// Calendar icon — represents booking
 function CalendarIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -53,6 +86,7 @@ function CalendarIcon() {
   );
 }
 
+// Chat icon — represents the chat feature
 function ChatIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -61,6 +95,7 @@ function ChatIcon() {
   );
 }
 
+// Star icon — represents reviews
 function StarIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -69,7 +104,17 @@ function StarIcon() {
   );
 }
 
-/* ---- Route Wrappers ---- */
+/* ============================================================
+ *  ROUTE WRAPPERS (Route Guards)
+ *  These components wrap page content to control access.
+ * ============================================================ */
+
+/**
+ * OwnerRoute — protects owner/staff dashboard pages.
+ * - If still loading auth state → show loading spinner
+ * - If user is not logged in OR is a customer → redirect to home
+ * - Otherwise → render the dashboard layout (Sidebar + Navbar + content)
+ */
 function OwnerRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading)
@@ -90,6 +135,11 @@ function OwnerRoute({ children }) {
   );
 }
 
+/**
+ * PublicRoute — wraps public pages (booking page, landing page).
+ * - Shows loading spinner while auth state is being determined
+ * - Renders the public Navbar + the page content
+ */
 function PublicRoute({ children }) {
   const { loading } = useAuth();
   if (loading)
@@ -106,19 +156,26 @@ function PublicRoute({ children }) {
   );
 }
 
+/**
+ * AppRoutes — defines all the routes in the application.
+ * Each <Route> maps a URL path to a component.
+ */
 function AppRoutes() {
   const { user } = useAuth();
 
   return (
     <Routes>
+      {/* Login page — redirect to dashboard if already logged in */}
       <Route
         path="/login"
         element={user ? <Navigate to="/dashboard" /> : <Login />}
       />
+      {/* Register page — redirect to dashboard if already logged in */}
       <Route
         path="/register"
         element={user ? <Navigate to="/dashboard" /> : <Register />}
       />
+      {/* Public booking page: /book/glamour-studio */}
       <Route
         path="/book/:slug"
         element={
@@ -127,6 +184,7 @@ function AppRoutes() {
           </PublicRoute>
         }
       />
+      {/* Booking success page (after Stripe payment) */}
       <Route
         path="/book/success"
         element={
@@ -135,6 +193,7 @@ function AppRoutes() {
           </PublicRoute>
         }
       />
+      {/* Dashboard — owner/staff only */}
       <Route
         path="/dashboard"
         element={
@@ -143,6 +202,7 @@ function AppRoutes() {
           </OwnerRoute>
         }
       />
+      {/* Bookings management — owner/staff only */}
       <Route
         path="/bookings"
         element={
@@ -151,6 +211,7 @@ function AppRoutes() {
           </OwnerRoute>
         }
       />
+      {/* Services management — owner/staff only */}
       <Route
         path="/services"
         element={
@@ -159,6 +220,7 @@ function AppRoutes() {
           </OwnerRoute>
         }
       />
+      {/* AI chat logs — owner/staff only */}
       <Route
         path="/chat-logs"
         element={
@@ -167,6 +229,7 @@ function AppRoutes() {
           </OwnerRoute>
         }
       />
+      {/* Settings — owner/staff only */}
       <Route
         path="/settings"
         element={
@@ -175,6 +238,7 @@ function AppRoutes() {
           </OwnerRoute>
         }
       />
+      {/* Landing page (home) — public */}
       <Route
         path="/"
         element={
@@ -238,6 +302,11 @@ function AppRoutes() {
   );
 }
 
+/**
+ * App — the root component.
+ * Wraps everything in BrowserRouter (for routing) and AuthProvider
+ * (for global authentication state).
+ */
 export default function App() {
   return (
     <BrowserRouter>

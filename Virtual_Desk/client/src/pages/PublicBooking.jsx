@@ -1,22 +1,62 @@
+/**
+ * ============================================================
+ *  PUBLIC BOOKING PAGE — pages/PublicBooking.jsx
+ * ============================================================
+ *  The public-facing booking page where customers book appointments.
+ *  Accessible at: /book/:slug (e.g., /book/glamour-studio)
+ *
+ *  WHAT IT DOES:
+ *  - Loads the business by its URL slug
+ *  - Guides the customer through a 4-step booking flow:
+ *    1. Service selection
+ *    2. Date & time selection (with real-time availability)
+ *    3. Customer information
+ *    4. Payment (redirects to Stripe)
+ *  - Includes the AI chat widget
+ *
+ *  KEY CONCEPTS TO LEARN:
+ *  1. Multi-step form: `step` state tracks which step is shown
+ *  2. useParams: gets the :slug from the URL
+ *  3. useSearchParams: reads query params (e.g., ?cancelled=true)
+ *  4. Availability fetching: loads time slots when service + date are selected
+ *  5. Payment flow: creates booking → creates Stripe session → redirects
+ * ============================================================
+ */
+
+// React hooks
 import { useState, useEffect } from "react";
+// React Router hooks
 import { useParams, useSearchParams } from "react-router-dom";
+// API helper
 import { api } from "../services/api.js";
+// AI chat widget
 import ChatWidget from "../components/ChatWidget.jsx";
 
+// The 4 steps of the booking flow
 const STEPS = ["service", "datetime", "info", "payment"];
 
+/**
+ * PublicBooking — the public booking page.
+ */
 export default function PublicBooking() {
+  // Get the business slug from the URL: /book/:slug
   const { slug } = useParams();
+  // Read query parameters (e.g., ?cancelled=true after Stripe cancel)
   const [searchParams] = useSearchParams();
   const cancelled = searchParams.get("cancelled") === "true";
 
+  // Business data
   const [business, setBusiness] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // Current step in the booking flow (0-3)
   const [step, setStep] = useState(0);
+  // True while creating the booking + payment session
   const [submitting, setSubmitting] = useState(false);
+  // The created booking (after successful submission)
   const [bookingResult, setBookingResult] = useState(null);
 
+  // Booking form state
   const [form, setForm] = useState({
     customerName: "",
     customerEmail: "",
@@ -27,34 +67,39 @@ export default function PublicBooking() {
     notes: "",
   });
 
+  // Available time slots for the selected service + date
   const [slots, setSlots] = useState([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
 
-  // Load business
+  // Load the business on mount (or when the slug changes)
   useEffect(() => {
     api.business
-      .getBySlug(slug)
+      .getBySlug(slug) // GET /api/businesses/slug/:slug
       .then(setBusiness)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [slug]);
 
-  // Fetch available slots when service + date are selected
+  // Fetch available slots whenever service + date are both selected
   useEffect(() => {
     if (form.serviceId && form.date && business) {
       setSlotsLoading(true);
       api.availability
-        .getSlots(business._id, form.date, form.serviceId)
+        .getSlots(business._id, form.date, form.serviceId) // GET /api/availability/:id
         .then((data) => {
           setSlots(data.slots || []);
         })
         .catch(() => setSlots([]))
         .finally(() => setSlotsLoading(false));
     } else {
-      setSlots([]);
+      setSlots([]); // no service/date selected → no slots
     }
   }, [form.serviceId, form.date, business]);
 
+  /**
+   * handleChange — updates the form state.
+   * When date or service changes, also resets the selected time.
+   */
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
     // Reset time when date or service changes
@@ -63,25 +108,41 @@ export default function PublicBooking() {
     }
   };
 
+  // Find the currently selected service object
   const selectedService = business?.services?.find((s) => s._id === form.serviceId);
 
+  /**
+   * canProceed — checks if the current step is complete enough to continue.
+   */
   const canProceed = () => {
     switch (step) {
-      case 0: return !!form.serviceId;
-      case 1: return !!form.date && !!form.time;
-      case 2: return !!form.customerName && !!form.customerEmail;
+      case 0: return !!form.serviceId;                    // step 0: service selected
+      case 1: return !!form.date && !!form.time;          // step 1: date + time selected
+      case 2: return !!form.customerName && !!form.customerEmail; // step 2: name + email
       default: return false;
     }
   };
 
+  /**
+   * handleNext — advances to the next step (if allowed).
+   */
   const handleNext = () => {
     if (canProceed()) setStep((s) => Math.min(s + 1, STEPS.length - 1));
   };
 
+  /**
+   * handleBack — goes back to the previous step.
+   */
   const handleBack = () => {
     setStep((s) => Math.max(s - 1, 0));
   };
 
+  /**
+   * handleSubmitBooking — the final step.
+   * 1. Creates the booking (status: "pending")
+   * 2. Creates a Stripe Checkout Session
+   * 3. Redirects the customer to Stripe's payment page
+   */
   const handleSubmitBooking = async () => {
     setError("");
     setSubmitting(true);
@@ -101,7 +162,7 @@ export default function PublicBooking() {
       // 2. Create Stripe Checkout Session
       const session = await api.payments.createCheckoutSession(booking._id);
 
-      // 3. Redirect to Stripe Checkout
+      // 3. Redirect to Stripe Checkout (hosted payment page)
       window.location.href = session.url;
     } catch (err) {
       setError(err.message);
@@ -109,23 +170,28 @@ export default function PublicBooking() {
     }
   };
 
+  // Loading state
   if (loading)
     return (
       <div className="loading-page">
         <div className="loading-spinner" /> Loading booking page...
       </div>
     );
+  // Error state (business not found)
   if (error && !business)
     return <div className="loading-page" style={{ color: "var(--danger)" }}>{error}</div>;
+  // No business found
   if (!business) return <div className="loading-page">Business not found</div>;
 
   return (
     <div>
+      {/* Booking hero header */}
       <div className="booking-hero">
         <h1>Book with {business.name}</h1>
         <p>{business.description || "Choose a service and pick a time that works for you"}</p>
       </div>
 
+      {/* Cancelled payment notice (from Stripe cancel_url) */}
       {cancelled && (
         <div className="booking-form-wrapper">
           <div className="auth-error" style={{ marginBottom: "1rem" }}>
@@ -134,20 +200,21 @@ export default function PublicBooking() {
         </div>
       )}
 
+      {/* AI chat assistant */}
       <ChatWidget businessSlug={slug} />
 
       <div className="booking-form-wrapper">
         <div className="booking-form-card">
-          {/* Step indicator */}
+          {/* ---- STEP INDICATOR ---- */}
           <div className="booking-steps">
             {STEPS.map((s, i) => (
               <div
                 key={s}
                 className={`booking-step ${i === step ? "active" : ""} ${i < step ? "completed" : ""}`}
-                onClick={() => i < step && setStep(i)}
+                onClick={() => i < step && setStep(i)} // allow going back to completed steps
               >
                 <div className="booking-step-number">
-                  {i < step ? "✓" : i + 1}
+                  {i < step ? "✓" : i + 1} {/* checkmark for completed steps */}
                 </div>
                 <div className="booking-step-label">
                   {s === "service" ? "Service" : s === "datetime" ? "Date & Time" : s === "info" ? "Your Info" : "Payment"}
@@ -156,13 +223,14 @@ export default function PublicBooking() {
             ))}
           </div>
 
+          {/* Error message */}
           {error && (
             <div className="auth-error">
               <span>⚠️</span> {error}
             </div>
           )}
 
-          {/* Step 0: Service Selection */}
+          {/* ---- STEP 0: SERVICE SELECTION ---- */}
           {step === 0 && (
             <div className="booking-step-content">
               <h3>Choose a Service</h3>
@@ -190,7 +258,7 @@ export default function PublicBooking() {
             </div>
           )}
 
-          {/* Step 1: Date & Time */}
+          {/* ---- STEP 1: DATE & TIME ---- */}
           {step === 1 && (
             <div className="booking-step-content">
               <h3>Pick a Date & Time</h3>
@@ -201,11 +269,12 @@ export default function PublicBooking() {
                   type="date"
                   value={form.date}
                   onChange={handleChange}
-                  min={new Date().toISOString().split("T")[0]}
+                  min={new Date().toISOString().split("T")[0]} // can't book in the past
                   required
                 />
               </div>
 
+              {/* Show available time slots once a date is selected */}
               {form.date && (
                 <div className="form-group">
                   <label>Available Time Slots</label>
@@ -222,7 +291,7 @@ export default function PublicBooking() {
                           className={`slot-btn ${form.time === slot ? "selected" : ""}`}
                           onClick={() => setForm({ ...form, time: slot })}
                         >
-                          {formatTime(slot)}
+                          {formatTime(slot)} {/* display in 12-hour format */}
                         </button>
                       ))}
                     </div>
@@ -239,7 +308,7 @@ export default function PublicBooking() {
             </div>
           )}
 
-          {/* Step 2: Customer Info */}
+          {/* ---- STEP 2: CUSTOMER INFO ---- */}
           {step === 2 && (
             <div className="booking-step-content">
               <h3>Your Information</h3>
@@ -308,7 +377,7 @@ export default function PublicBooking() {
             </div>
           )}
 
-          {/* Step 3: Payment */}
+          {/* ---- STEP 3: PAYMENT ---- */}
           {step === 3 && (
             <div className="booking-step-content">
               <h3>Complete Payment</h3>
@@ -317,6 +386,7 @@ export default function PublicBooking() {
                 Your booking will be confirmed once payment is successful.
               </p>
 
+              {/* Payment summary */}
               {selectedService && (
                 <div className="booking-summary">
                   <h4>Payment Summary</h4>
@@ -352,10 +422,13 @@ export default function PublicBooking() {
   );
 }
 
+/**
+ * formatTime — converts "14:30" to "2:30 PM" (12-hour format).
+ */
 function formatTime(time) {
   if (!time) return "";
   const [h, m] = time.split(":").map(Number);
   const ampm = h >= 12 ? "PM" : "AM";
-  const hour = h % 12 || 12;
+  const hour = h % 12 || 12; // 0 → 12, 13 → 1, etc.
   return `${hour}:${String(m).padStart(2, "0")} ${ampm}`;
 }

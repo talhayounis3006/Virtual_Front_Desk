@@ -1,43 +1,75 @@
+/**
+ * ============================================================
+ *  SCHEDULER SERVICE — services/scheduler.js
+ * ============================================================
+ *  Runs automated background jobs using node-cron.
+ *
+ *  JOBS:
+ *  1. Daily at 9:00 AM — Send appointment reminders for tomorrow's bookings
+ *  2. Daily at 10:00 AM — Send review requests for yesterday's completed bookings
+ *
+ *  KEY CONCEPTS TO LEARN:
+ *  1. Cron Jobs: scheduled tasks that run at specific times.
+ *     Format: "minute hour day-of-month month day-of-week"
+ *     "0 9 * * *" = at 9:00 AM every day.
+ *  2. Idempotency Flags: `reminderSent` and `reviewRequestSent` on the
+ *     Booking model prevent duplicate emails if the job runs twice.
+ *  3. Notification Logging: every email attempt is logged to the
+ *     Notification collection (success or failure).
+ *  4. Dev Mode: in development, jobs also run once after 5 seconds
+ *     so you can test without waiting for the cron trigger.
+ * ============================================================
+ */
+
+// node-cron: library for scheduling tasks
 import cron from "node-cron";
+// Models
 import Booking from "../models/Booking.js";
 import Business from "../models/Business.js";
 import Notification from "../models/Notification.js";
+// Email service
 import { sendReminderEmail, sendReviewRequestEmail } from "./email.js";
 
 /**
  * ─────────────────────────────────────────────
- *  Job 1: Daily at 9:00 AM — Send appointment
+ *  JOB 1: Daily at 9:00 AM — Send appointment
  *          reminders for tomorrow's bookings
  * ─────────────────────────────────────────────
  *
- * Finds all confirmed bookings for tomorrow where
+ * Finds all confirmed/pending bookings for tomorrow where
  * reminderSent is false, then sends an email reminder.
  */
 async function sendTomorrowReminders() {
   console.log("⏰ [Scheduler] Running tomorrow reminder job...");
 
-  // Calculate tomorrow's date range
+  // Calculate tomorrow's date range (start of day to end of day)
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   const startOfDay = new Date(tomorrow);
-  startOfDay.setHours(0, 0, 0, 0);
+  startOfDay.setHours(0, 0, 0, 0); // 00:00:00
   const endOfDay = new Date(tomorrow);
-  endOfDay.setHours(23, 59, 59, 999);
+  endOfDay.setHours(23, 59, 59, 999); // 23:59:59.999
 
   try {
+    // Find bookings that:
+    // - Are scheduled for tomorrow
+    // - Are confirmed or pending (not cancelled)
+    // - Haven't had a reminder sent yet (idempotency flag)
     const bookings = await Booking.find({
       date: { $gte: startOfDay, $lte: endOfDay },
       status: { $in: ["confirmed", "pending"] },
       reminderSent: false,
-    }).populate("business", "name");
+    }).populate("business", "name"); // include business name for the email
 
     console.log(`   Found ${bookings.length} booking(s) needing reminders`);
 
+    // Send a reminder email for each booking
     for (const booking of bookings) {
       const businessName = booking.business?.name || "Our Business";
       const dateStr = booking.date.toISOString().split("T")[0];
 
       try {
+        // Send the email
         await sendReminderEmail({
           to: booking.customerEmail,
           name: booking.customerName,
@@ -47,11 +79,11 @@ async function sendTomorrowReminders() {
           time: booking.time,
         });
 
-        // Mark reminder as sent
+        // Mark reminder as sent (prevents duplicate emails on next run)
         booking.reminderSent = true;
         await booking.save();
 
-        // Log to notifications collection
+        // Log the successful send to the Notification collection
         await Notification.create({
           booking: booking._id,
           business: booking.business?._id || booking.business,
@@ -69,7 +101,7 @@ async function sendTomorrowReminders() {
       } catch (err) {
         console.error(`   ❌ Failed to send reminder to ${booking.customerEmail}:`, err.message);
 
-        // Log failure
+        // Log the failure to the Notification collection
         await Notification.create({
           booking: booking._id,
           business: booking.business?._id || booking.business,
@@ -92,7 +124,7 @@ async function sendTomorrowReminders() {
 
 /**
  * ─────────────────────────────────────────────
- *  Job 2: Daily at 10:00 AM — Send review
+ *  JOB 2: Daily at 10:00 AM — Send review
  *          requests for yesterday's completed
  *          bookings
  * ─────────────────────────────────────────────
@@ -113,6 +145,10 @@ async function sendReviewRequests() {
   endOfDay.setHours(23, 59, 59, 999);
 
   try {
+    // Find bookings that:
+    // - Were scheduled for yesterday
+    // - Are marked "completed"
+    // - Haven't had a review request sent yet
     const bookings = await Booking.find({
       date: { $gte: startOfDay, $lte: endOfDay },
       status: "completed",
@@ -130,6 +166,7 @@ async function sendReviewRequests() {
       const reviewUrl = `https://frontdesk.app/review/${booking._id}`;
 
       try {
+        // Send the review request email
         await sendReviewRequestEmail({
           to: booking.customerEmail,
           name: booking.customerName,
@@ -139,12 +176,12 @@ async function sendReviewRequests() {
           reviewUrl,
         });
 
-        // Mark review request as sent
+        // Mark review request as sent (prevents duplicates)
         booking.reviewRequestSent = true;
         booking.reviewRequested = true;
         await booking.save();
 
-        // Log to notifications collection
+        // Log the successful send
         await Notification.create({
           booking: booking._id,
           business: booking.business?._id || booking.business,
@@ -162,6 +199,7 @@ async function sendReviewRequests() {
       } catch (err) {
         console.error(`   ❌ Failed to send review request to ${booking.customerEmail}:`, err.message);
 
+        // Log the failure
         await Notification.create({
           booking: booking._id,
           business: booking.business?._id || booking.business,
@@ -183,13 +221,14 @@ async function sendReviewRequests() {
 }
 
 /**
- * Initialize all scheduled jobs.
- * Call this once when the server starts.
+ * initScheduler — initializes all scheduled jobs.
+ * Call this once when the server starts (from server.js).
  */
 export function initScheduler() {
   console.log("⏰ Initializing scheduled jobs...");
 
   // Job 1: Reminders — every day at 9:00 AM
+  // Cron format: "0 9 * * *" = minute 0, hour 9, every day
   cron.schedule("0 9 * * *", () => {
     sendTomorrowReminders();
   });
@@ -212,6 +251,6 @@ export function initScheduler() {
         console.log("⏰ [Dev] Running initial review request job...");
         sendReviewRequests();
       });
-    }, 5000);
+    }, 5000); // wait 5 seconds after server start
   }
 }

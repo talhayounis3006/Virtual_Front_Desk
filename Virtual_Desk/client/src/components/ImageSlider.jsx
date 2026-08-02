@@ -1,5 +1,28 @@
+/**
+ * ============================================================
+ *  IMAGE SLIDER — components/ImageSlider.jsx
+ * ============================================================
+ *  A simple auto-advancing image carousel shown on the landing page.
+ *
+ *  WHAT IT DOES:
+ *  - Displays a slideshow of 3 images
+ *  - Auto-advances every 5 seconds
+ *  - Has prev/next arrow buttons
+ *  - Has clickable dot indicators
+ *
+ *  KEY CONCEPTS TO LEARN:
+ *  1. useState: tracks the current slide index
+ *  2. useEffect + setInterval: auto-advance timer
+ *  3. useCallback: memoizes functions so they don't get recreated
+ *  4. Modulo arithmetic: `(current + 1) % slides.length` wraps around
+ *     to the beginning when reaching the end
+ * ============================================================
+ */
+
+// React hooks
 import { useState, useEffect, useCallback } from "react";
 
+// The slides to display (SVG images from the public folder)
 const slides = [
   {
     src: "/images/slide-1.svg",
@@ -15,21 +38,37 @@ const slides = [
   },
 ];
 
+/**
+ * ImageSlider — the auto-advancing image carousel.
+ */
 export default function ImageSlider() {
+  // Index of the currently visible slide
   const [current, setCurrent] = useState(0);
+  // Prevents rapid clicking during the transition animation
   const [isTransitioning, setIsTransitioning] = useState(false);
 
+  /**
+   * goTo — navigates to a specific slide index.
+   * Blocks navigation while a transition is in progress.
+   */
   const goTo = useCallback((index) => {
-    if (isTransitioning) return;
+    if (isTransitioning) return; // ignore clicks during transition
     setIsTransitioning(true);
     setCurrent(index);
+    // Allow navigation again after 500ms (matches CSS transition duration)
     setTimeout(() => setIsTransitioning(false), 500);
   }, [isTransitioning]);
 
+  /**
+   * next — go to the next slide (wraps around to 0 at the end).
+   */
   const next = useCallback(() => {
     goTo((current + 1) % slides.length);
   }, [current, goTo]);
 
+  /**
+   * prev — go to the previous slide (wraps around to the last at the start).
+   */
   const prev = useCallback(() => {
     goTo((current - 1 + slides.length) % slides.length);
   }, [current, goTo]);
@@ -39,12 +78,14 @@ export default function ImageSlider() {
     const timer = setInterval(() => {
       setCurrent((prev) => (prev + 1) % slides.length);
     }, 5000);
+    // Cleanup: clear the interval when the component unmounts
     return () => clearInterval(timer);
   }, []);
 
   return (
     <div className="image-slider">
       <div className="slider-viewport">
+        {/* Render all slides, only the current one is visible (via CSS) */}
         {slides.map((slide, index) => (
           <div
             key={index}
@@ -76,7 +117,7 @@ export default function ImageSlider() {
         </button>
       </div>
 
-      {/* Dots */}
+      {/* Dot indicators — click to jump to a slide */}
       <div className="slider-dots">
         {slides.map((_, index) => (
           <button

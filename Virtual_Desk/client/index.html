@@ -1,15 +1,41 @@
+<!--
+  ============================================================
+   HTML ENTRY POINT — index.html
+  ============================================================
+   This is the HTML file that Vite serves as the entry point.
+   The React app is mounted into the <div id="root"> element.
+
+   WHAT IT DOES:
+   1. Sets up the HTML document structure
+   2. Loads Google Fonts (Inter, DM Serif Display, JetBrains Mono)
+   3. Defines the #root div where React mounts
+   4. Loads the React entry point (main.jsx)
+
+   KEY CONCEPTS TO LEARN:
+   - The #root div is where ReactDOM.createRoot() mounts the app
+   - The script tag uses type="module" for ES module support
+   - Vite processes this file and injects the built JS/CSS
+  ============================================================
+-->
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <!-- Character encoding -->
     <meta charset="UTF-8" />
+    <!-- Responsive viewport: scales correctly on mobile devices -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Preconnect to Google Fonts for faster font loading -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Load Google Fonts: Inter (body), DM Serif Display (headings), JetBrains Mono (code) -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <!-- Page title (shown in browser tab) -->
     <title>FrontDesk — AI-Powered Reception</title>
   </head>
   <body>
+    <!-- React mounts here — see main.jsx: ReactDOM.createRoot(document.getElementById("root")) -->
     <div id="root"></div>
+    <!-- Entry point: Vite loads this module and builds from it -->
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

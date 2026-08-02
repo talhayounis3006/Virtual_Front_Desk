@@ -1,16 +1,55 @@
+/**
+ * ============================================================
+ *  CHAT ROUTES — routes/chat.js
+ * ============================================================
+ *  Handles the AI chat assistant endpoints:
+ *    POST /api/chat          — send a message to the AI assistant
+ *    POST /api/chat/faq      — seed FAQ documents with embeddings
+ *    GET  /api/chat/logs/:businessId — get chat logs (admin view)
+ *
+ *  HOW THE AI CHAT WORKS (Reverse-Engineering Guide):
+ *  1. Customer sends a message with the business slug.
+ *  2. Server finds the business and creates/loads a chat session.
+ *  3. Server embeds the customer's question and searches for relevant FAQs
+ *     using cosine similarity (semantic search).
+ *  4. Server builds a "system prompt" with business info + FAQ context.
+ *  5. Server calls OpenAI (via OpenRouter) with the conversation history
+ *     and a "function tool" called `checkAvailability`.
+ *  6. If the AI decides to check availability, it calls the function,
+ *     gets real data from MongoDB, and sends the result back to the AI
+ *     for a final natural-language answer.
+ *  7. The conversation is saved to the ChatLog collection.
+ *
+ *  KEY CONCEPTS TO LEARN:
+ *  - Function Calling: letting the LLM call real code (checkAvailability)
+ *  - Embeddings: converting text to vectors for semantic search
+ *  - System Prompts: instructions that shape the AI's behavior
+ *  - Fallback: if no API key, a simple keyword-based responder is used
+ * ============================================================
+ */
+
+// Express Router
 import express from "express";
+// crypto: generates random UUIDs for chat session IDs
 import crypto from "crypto";
+// OpenAI: the AI API client (configured to use OpenRouter)
 import OpenAI from "openai";
+// Models
 import ChatLog from "../models/ChatLog.js";
 import FaqDocument from "../models/FaqDocument.js";
 import Business from "../models/Business.js";
 import BusinessSettings from "../models/BusinessSettings.js";
 import Booking from "../models/Booking.js";
+// Auth middleware
 import { protect } from "../middleware/auth.js";
+// Embedding helpers (semantic search)
 import { generateEmbedding, findRelevantFaqs } from "../services/embeddings.js";
 
 const router = express.Router();
 
+// ---- OPENAI CLIENT (lazy singleton) ----
+// We create the OpenAI client only once and reuse it.
+// It's configured to use OpenRouter (a unified API gateway) by default.
 let _openai = null;
 function getOpenAI() {
   if (!_openai) {
@@ -22,11 +61,13 @@ function getOpenAI() {
   return _openai;
 }
 
+// Day name lookup: getDay() returns 0=Sunday ... 6=Saturday
 const DAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
 /**
  * Function tool definition for OpenAI function calling.
- * The LLM can call this to check real availability.
+ * This tells the LLM: "You can call a function named checkAvailability
+ * with these parameters." The LLM decides when to call it.
  */
 const checkAvailabilityFunction = {
   name: "checkAvailability",
@@ -51,13 +92,16 @@ const checkAvailabilityFunction = {
 };
 
 /**
- * Actual implementation of checkAvailability that queries MongoDB.
+ * ACTUAL IMPLEMENTATION of checkAvailability.
+ * This is the real code that runs when the AI calls the function.
+ * It queries MongoDB for real availability data.
  */
 async function checkAvailabilityImpl(businessId, date, serviceName) {
+  // Load the business (lean() = plain JS objects, faster)
   const business = await Business.findById(businessId).lean();
   if (!business) return { error: "Business not found" };
 
-  // Find service by name
+  // Find the service by name (case-insensitive)
   const service = business.services?.find(
     (s) => s.name.toLowerCase() === serviceName.toLowerCase()
   );
@@ -69,7 +113,7 @@ async function checkAvailabilityImpl(businessId, date, serviceName) {
     };
   }
 
-  // Get business hours
+  // Get business hours — try BusinessSettings first, fall back to Business
   const settings = await BusinessSettings.findOne({ business: businessId });
 
   const bookingDate = new Date(date + "T00:00:00");
@@ -80,11 +124,12 @@ async function checkAvailabilityImpl(businessId, date, serviceName) {
     dayHours = business.businessHours?.[dayName];
   }
 
+  // Business is closed on this day
   if (!dayHours || !dayHours.open || !dayHours.close) {
     return { available: false, slots: [], message: "Business is closed on this day" };
   }
 
-  // Check blackout dates
+  // Check blackout dates (holidays)
   if (settings?.blackoutDates?.length) {
     const dateStr = bookingDate.toISOString().split("T")[0];
     const isBlackout = settings.blackoutDates.some((bd) => {
@@ -96,10 +141,10 @@ async function checkAvailabilityImpl(businessId, date, serviceName) {
     }
   }
 
-  // Generate 30-min slots
+  // Generate all possible 30-minute time slots for the day
   const allSlots = generateTimeSlots(dayHours.open, dayHours.close, 30);
 
-  // Fetch existing bookings for this business + date
+  // Fetch existing bookings for this business + date (exclude cancelled/no-show)
   const dayStart = new Date(date + "T00:00:00");
   const dayEnd = new Date(date + "T23:59:59");
   const existingBookings = await Booking.find({
@@ -108,7 +153,8 @@ async function checkAvailabilityImpl(businessId, date, serviceName) {
     status: { $nin: ["cancelled", "no-show"] },
   }).sort({ time: 1 });
 
-  // Build occupied slots
+  // Build a set of occupied slots
+  // For each booking, mark every slot that falls within its time window
   const occupiedSlots = new Set();
   for (const booking of existingBookings) {
     const startMinutes = timeToMinutes(booking.time);
@@ -121,7 +167,11 @@ async function checkAvailabilityImpl(businessId, date, serviceName) {
     }
   }
 
-  // Filter available slots considering service duration
+  // Filter available slots considering the service duration
+  // A slot is available if:
+  //  - It's not occupied
+  //  - The service fits before closing time
+  //  - The service doesn't overlap with the next booking
   const serviceDuration = service.duration;
   const availableSlots = allSlots.filter((slot) => {
     if (occupiedSlots.has(slot)) return false;
@@ -151,14 +201,16 @@ async function checkAvailabilityImpl(businessId, date, serviceName) {
  *
  * Accepts: { businessSlug, message, sessionId?, customerName?, customerEmail? }
  *
- * Uses vector search to find relevant FAQ documents, then sends the user's question
- * along with FAQ context and the checkAvailability function tool to OpenAI.
- * The model can answer from FAQ context or call the function to check real availability.
+ * THE MAIN AI CHAT ENDPOINT.
+ * Flow: validate → load business → load/create session → save user msg →
+ *       vector search FAQs → build system prompt → call OpenAI →
+ *       handle function calls → save AI response → return.
  */
 router.post("/", async (req, res) => {
   try {
     const { businessSlug, message, sessionId, customerName, customerEmail } = req.body;
 
+    // ---- VALIDATION ----
     if (!businessSlug || !message) {
       return res.status(400).json({ message: "Business slug and message are required" });
     }
@@ -171,17 +223,22 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ message: "Message too long (max 2000 characters)" });
     }
 
+    // Load the business by slug
     const business = await Business.findOne({ slug: businessSlug }).lean();
     if (!business) {
       return res.status(404).json({ message: "Business not found" });
     }
 
+    // Check if AI is enabled for this business
     if (!business.aiEnabled) {
       return res.status(400).json({ message: "AI assistant is disabled" });
     }
 
+    // ---- SESSION MANAGEMENT ----
+    // Use the provided sessionId or generate a new one
     const id = sessionId || crypto.randomUUID();
 
+    // Load existing chat log or create a new one
     let chatLog = await ChatLog.findOne({ sessionId: id });
     if (!chatLog) {
       chatLog = await ChatLog.create({
@@ -193,11 +250,13 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // Save user message
+    // Save the user's message to the chat log
     chatLog.messages.push({ role: "user", content: message.trim() });
     await chatLog.save();
 
-    // --- Step 1: Vector search for relevant FAQ context ---
+    // --- STEP 1: Vector search for relevant FAQ context ---
+    // Convert the user's question into an embedding, then find the most
+    // similar FAQs. This gives the AI relevant knowledge to answer from.
     let faqContext = "";
     if (process.env.OPENAI_API_KEY) {
       try {
@@ -220,7 +279,9 @@ router.post("/", async (req, res) => {
       }
     }
 
-    // --- Step 2: Build the system prompt ---
+    // --- STEP 2: Build the system prompt ---
+    // The system prompt tells the AI who it is, what business it represents,
+    // what services are offered, and how to behave.
     const servicesList =
       business.services && business.services.length > 0
         ? business.services
@@ -247,12 +308,12 @@ Instructions:
 - If you cannot resolve an issue, suggest they contact the business directly.
 - Be friendly, professional, and helpful.`;
 
-    // --- Step 3: Call OpenAI with function tools ---
+    // --- STEP 3: Call OpenAI with function tools ---
     let aiResponse;
     let functionCallResult = null;
 
     if (!process.env.OPENAI_API_KEY) {
-      // Fallback behavior if no API key
+      // Fallback behavior if no API key — use simple keyword matching
       aiResponse = fallbackResponse(message, business);
     } else {
       try {
@@ -262,7 +323,8 @@ Instructions:
         ];
 
         // Add last few messages for context (up to 6 previous exchanges)
-        const history = chatLog.messages.slice(-12); // last 12 messages (6 user + 6 assistant)
+        // slice(-12) = last 12 messages (6 user + 6 assistant)
+        const history = chatLog.messages.slice(-12);
         for (const msg of history) {
           conversationMessages.push({
             role: msg.role,
@@ -270,6 +332,7 @@ Instructions:
           });
         }
 
+        // Call the AI model with the conversation and the function tool
         const completion = await getOpenAI().chat.completions.create({
           model: "openai/gpt-4o-mini",
           messages: conversationMessages,
@@ -279,9 +342,9 @@ Instructions:
               function: checkAvailabilityFunction,
             },
           ],
-          tool_choice: "auto",
-          temperature: 0.7,
-          max_tokens: 500,
+          tool_choice: "auto", // let the model decide whether to call the function
+          temperature: 0.7,    // creativity level (0 = deterministic, 1 = creative)
+          max_tokens: 500,     // max response length
         });
 
         const choice = completion.choices[0];
@@ -290,7 +353,9 @@ Instructions:
         if (choice.finish_reason === "tool_calls" && choice.message.tool_calls) {
           const toolCall = choice.message.tool_calls[0];
           if (toolCall.function.name === "checkAvailability") {
+            // Parse the arguments the model provided
             const args = JSON.parse(toolCall.function.arguments);
+            // Execute the real availability check against MongoDB
             const result = await checkAvailabilityImpl(
               business._id,
               args.date,
@@ -299,15 +364,16 @@ Instructions:
             functionCallResult = result;
 
             // Send the function result back to the model for a final answer
+            // This is the "second round" of the function calling pattern
             const secondCompletion = await getOpenAI().chat.completions.create({
               model: "openai/gpt-4o-mini",
               messages: [
                 ...conversationMessages,
-                choice.message,
+                choice.message, // the model's tool call message
                 {
                   role: "tool",
                   tool_call_id: toolCall.id,
-                  content: JSON.stringify(result),
+                  content: JSON.stringify(result), // the function's output
                 },
               ],
               temperature: 0.7,
@@ -319,6 +385,7 @@ Instructions:
             aiResponse = choice.message.content || "I'm not sure how to help with that.";
           }
         } else {
+          // No function call — just use the model's direct response
           aiResponse = choice.message.content || "I'm not sure how to help with that.";
         }
       } catch (err) {
@@ -327,13 +394,15 @@ Instructions:
       }
     }
 
-    // Save assistant response
+    // Save the assistant's response to the chat log
     chatLog.messages.push({ role: "assistant", content: aiResponse });
+    // If the customer provided an email, mark this as a captured lead
     if (customerEmail && !chatLog.generatedLead) {
       chatLog.generatedLead = true;
     }
     await chatLog.save();
 
+    // Return the AI response + session ID + availability data (if any)
     res.json({
       response: aiResponse,
       sessionId: id,
@@ -348,11 +417,15 @@ Instructions:
 /**
  * POST /api/chat/faq — seed FAQ documents for a business with embeddings
  * Body: { businessSlug, faqs: [{ question, answer, category? }] }
+ *
+ * This is how the business owner adds knowledge for the AI assistant.
+ * Each FAQ is embedded (converted to a vector) for semantic search.
  */
 router.post("/faq", async (req, res) => {
   try {
     const { businessSlug, faqs } = req.body;
 
+    // Validate input
     if (!businessSlug || !faqs || !Array.isArray(faqs)) {
       return res.status(400).json({ message: "businessSlug and faqs array are required" });
     }
@@ -362,11 +435,12 @@ router.post("/faq", async (req, res) => {
       return res.status(404).json({ message: "Business not found" });
     }
 
-    // Delete existing FAQs for this business
+    // Delete existing FAQs for this business (replace all)
     await FaqDocument.deleteMany({ business: business._id });
 
     const created = [];
     for (const faq of faqs) {
+      // Combine question + answer for a richer embedding
       const combined = `Q: ${faq.question}\nA: ${faq.answer}`;
       let embedding = [];
       if (process.env.OPENAI_API_KEY) {
@@ -377,6 +451,7 @@ router.post("/faq", async (req, res) => {
         }
       }
 
+      // Create the FAQ document with its embedding
       const doc = await FaqDocument.create({
         business: business._id,
         question: faq.question,
@@ -396,11 +471,12 @@ router.post("/faq", async (req, res) => {
 
 /**
  * GET /api/chat/logs/:businessId — admin view
+ * PROTECTED — returns the most recent 50 chat logs for a business.
  */
 router.get("/logs/:businessId", protect, async (req, res) => {
   try {
     const logs = await ChatLog.find({ business: req.params.businessId })
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1 }) // newest first
       .limit(50);
     res.json(logs);
   } catch (error) {
@@ -408,8 +484,15 @@ router.get("/logs/:businessId", protect, async (req, res) => {
   }
 });
 
-/* ---- Helpers ---- */
+/* ============================================================
+ *  HELPER FUNCTIONS
+ * ============================================================ */
 
+/**
+ * generateTimeSlots — creates an array of time slots between open and close.
+ * Example: generateTimeSlots("09:00", "17:00", 30)
+ * → ["09:00", "09:30", "10:00", ..., "16:30"]
+ */
 function generateTimeSlots(open, close, intervalMinutes) {
   const slots = [];
   const openMin = timeToMinutes(open);
@@ -420,17 +503,29 @@ function generateTimeSlots(open, close, intervalMinutes) {
   return slots;
 }
 
+/**
+ * timeToMinutes — converts "HH:MM" to total minutes since midnight.
+ * Example: "14:30" → 870
+ */
 function timeToMinutes(t) {
   const [h, m] = t.split(":").map(Number);
   return h * 60 + m;
 }
 
+/**
+ * minutesToTime — converts minutes since midnight to "HH:MM".
+ * Example: 870 → "14:30"
+ */
 function minutesToTime(m) {
   const h = Math.floor(m / 60);
   const min = m % 60;
   return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
 }
 
+/**
+ * fallbackResponse — a simple keyword-based responder used when
+ * no OPENAI_API_KEY is configured. This lets the app work without AI.
+ */
 function fallbackResponse(message, business) {
   const lowerMessage = message.toLowerCase();
   if (lowerMessage.includes("book") || lowerMessage.includes("appointment") || lowerMessage.includes("schedule")) {
@@ -452,4 +547,5 @@ function fallbackResponse(message, business) {
   }
 }
 
+// Export the router so server.js can mount it at /api/chat
 export default router;

@@ -1,11 +1,38 @@
+/**
+ * ============================================================
+ *  DASHBOARD PAGE — pages/Dashboard.jsx
+ * ============================================================
+ *  The business owner's main dashboard with analytics and charts.
+ *
+ *  WHAT IT SHOWS:
+ *  - Stat cards: Today's Bookings, All Time Bookings, Upcoming, Active Services
+ *  - Line chart: Bookings per day (last 30 days)
+ *  - Bar chart: Bookings by status
+ *  - Lists: Upcoming bookings and Recent activity
+ *
+ *  KEY CONCEPTS TO LEARN:
+ *  1. Data fetching: useEffect + api.dashboard.getStats()
+ *  2. Loading/error states: conditional rendering
+ *  3. Recharts: a React charting library (LineChart, BarChart, etc.)
+ *  4. Data transformation: converting API data into chart-friendly format
+ * ============================================================
+ */
+
+// React hooks
 import { useState, useEffect } from "react";
+// React Router
 import { Link, useNavigate } from "react-router-dom";
+// API helper
 import { api } from "../services/api.js";
+// Recharts: charting library components
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Cell, Legend,
 } from "recharts";
 
+/* ---- SVG ICON COMPONENTS ---- */
+
+// Calendar icon — stat card
 function CalendarIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -23,6 +50,7 @@ function CalendarIcon() {
   );
 }
 
+// Bar chart icon — stat card
 function BarChartIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -33,6 +61,7 @@ function BarChartIcon() {
   );
 }
 
+// Clock icon — stat card
 function ClockIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -42,6 +71,7 @@ function ClockIcon() {
   );
 }
 
+// Gear icon — stat card
 function SettingsIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -51,6 +81,7 @@ function SettingsIcon() {
   );
 }
 
+// Calendar icon — upcoming bookings
 function UpcomingIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -62,6 +93,7 @@ function UpcomingIcon() {
   );
 }
 
+// Activity/pulse icon — recent activity
 function ActivityIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -70,61 +102,78 @@ function ActivityIcon() {
   );
 }
 
+// Color mapping for booking statuses (used in charts and badges)
 const STATUS_COLORS = {
-  confirmed: "#3b82f6",
-  completed: "#22c55e",
-  cancelled: "#ef4444",
-  "no-show": "#f59e0b",
-  pending: "#8b5cf6",
+  confirmed: "#3b82f6",  // blue
+  completed: "#22c55e",  // green
+  cancelled: "#ef4444",  // red
+  "no-show": "#f59e0b",  // amber
+  pending: "#8b5cf6",    // purple
 };
 
+/**
+ * formatDateLabel — converts "2026-08-01" to "Aug 1" for chart axis labels.
+ */
 function formatDateLabel(dateStr) {
   const d = new Date(dateStr + "T00:00:00");
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+/**
+ * Dashboard — the main analytics dashboard.
+ */
 export default function Dashboard() {
   const navigate = useNavigate();
+  // Dashboard data from the API
   const [data, setData] = useState(null);
+  // Loading state
   const [loading, setLoading] = useState(true);
+  // Error message
   const [error, setError] = useState("");
 
+  // Fetch dashboard stats on component mount
   useEffect(() => {
     api.dashboard
-      .getStats()
+      .getStats() // GET /api/dashboard/stats
       .then(setData)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
 
+  // Loading state
   if (loading)
     return (
       <div className="loading-page">
         <div className="loading-spinner" /> Loading dashboard...
       </div>
     );
+  // Error state
   if (error)
     return (
       <div className="loading-page" style={{ color: "var(--danger)" }}>
         {error}
       </div>
     );
+  // No data state
   if (!data)
     return (
       <div className="loading-page">Could not load dashboard. Try again.</div>
     );
 
+  // Avatar color rotation
   const colors = ["blue", "green", "purple", "amber"];
 
-  // Build status chart data
+  // Transform bookingsByStatus object into chart data format
+  // { pending: 3, confirmed: 5 } → [{ name: "Pending", count: 3, fill: "#8b5cf6" }, ...]
   const statusChartData = Object.entries(data.bookingsByStatus || {}).map(([status, count]) => ({
-    name: status.charAt(0).toUpperCase() + status.slice(1),
+    name: status.charAt(0).toUpperCase() + status.slice(1), // "pending" → "Pending"
     count,
-    fill: STATUS_COLORS[status] || "#6b7280",
+    fill: STATUS_COLORS[status] || "#6b7280", // color for this status
   }));
 
   return (
     <div>
+      {/* Page header with business name + booking page link */}
       <div className="page-header">
         <div
           style={{
@@ -140,6 +189,7 @@ export default function Dashboard() {
             </p>
           </div>
           <div style={{ display: "flex", gap: "0.5rem" }}>
+              {/* Link to the public booking page */}
               {data.business?.slug && (
                 <Link
                   to={`/book/${data.business.slug}`}
@@ -155,6 +205,7 @@ export default function Dashboard() {
       </div>
 
       <div className="page-body">
+        {/* ---- STAT CARDS ---- */}
         <div className="grid grid-4" style={{ marginBottom: "1.5rem" }}>
           <div className="stat-card">
             <div className="stat-icon blue"><CalendarIcon /></div>
@@ -182,6 +233,7 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* ---- CHARTS ---- */}
         <div className="grid grid-2" style={{ marginBottom: "1.5rem" }}>
           {/* Bookings Per Day Line Chart */}
           <div className="card">
@@ -232,6 +284,7 @@ export default function Dashboard() {
                   <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                   <Tooltip formatter={(value) => [value, "Bookings"]} />
                   <Bar dataKey="count" name="Bookings" radius={[4, 4, 0, 0]}>
+                    {/* Each bar gets its own color based on status */}
                     {statusChartData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.fill} />
                     ))}
@@ -242,12 +295,15 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* ---- LISTS ---- */}
         <div className="grid grid-2">
+          {/* Upcoming Bookings */}
           <div className="card">
             <div className="section-header">
               <div className="section-header-icon" style={{ background: "var(--info-light)", color: "var(--info)" }}><UpcomingIcon /></div>
               <h3>Upcoming Bookings</h3>
             </div>
+            {/* Empty state */}
             {data.upcomingBookings?.length === 0 && (
               <div className="empty-state">
                 <div className="empty-state-icon"><CalendarIcon /></div>
@@ -255,6 +311,7 @@ export default function Dashboard() {
                 <p>New appointments will show up here</p>
               </div>
             )}
+            {/* List of upcoming bookings */}
             {data.upcomingBookings?.map((b, i) => (
               <div key={b._id} className="list-item">
                 <div className="list-item-info">
@@ -276,11 +333,13 @@ export default function Dashboard() {
             ))}
           </div>
 
+          {/* Recent Activity */}
           <div className="card">
             <div className="section-header">
               <div className="section-header-icon" style={{ background: "#f0eaf5", color: "#7a5a8f" }}><ActivityIcon /></div>
               <h3>Recent Activity</h3>
             </div>
+            {/* Empty state */}
             {data.recentBookings?.length === 0 && (
               <div className="empty-state">
                 <div className="empty-state-icon"><ActivityIcon /></div>
@@ -288,6 +347,7 @@ export default function Dashboard() {
                 <p>Recent bookings will appear here</p>
               </div>
             )}
+            {/* List of recent bookings */}
             {data.recentBookings?.map((b, i) => (
               <div key={b._id} className="list-item">
                 <div className="list-item-info">

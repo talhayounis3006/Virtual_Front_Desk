@@ -1,7 +1,33 @@
+/**
+ * ============================================================
+ *  REGISTER PAGE — pages/Register.jsx
+ * ============================================================
+ *  The registration page where new business owners create an account.
+ *
+ *  WHAT IT DOES:
+ *  - Shows a form with name, email, password, business name, and category
+ *  - Calls the register API on submit (creates user + business)
+ *  - Redirects to /dashboard on success
+ *  - Shows an error message on failure
+ *
+ *  KEY CONCEPTS TO LEARN:
+ *  1. Form state as an object: one `form` state object for all fields
+ *  2. handleChange: a single handler for all inputs using `name` attribute
+ *  3. Controlled select: the category dropdown is bound to state
+ *  4. Registration flow: creates both a User AND a Business on the server
+ * ============================================================
+ */
+
+// React hooks
 import { useState } from "react";
+// React Router hooks
 import { useNavigate, Link } from "react-router-dom";
+// Auth context
 import { useAuth } from "../context/AuthContext.jsx";
 
+/* ---- SVG ICON COMPONENTS ---- */
+
+// Building icon — logo
 function LogoIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -16,6 +42,7 @@ function LogoIcon() {
   );
 }
 
+// Checkmark icon — feature bullet
 function CheckIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -24,6 +51,7 @@ function CheckIcon() {
   );
 }
 
+// Lightning bolt icon — feature bullet
 function ZapIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -32,6 +60,7 @@ function ZapIcon() {
   );
 }
 
+// Trending up icon — feature bullet
 function TrendingIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -41,6 +70,7 @@ function TrendingIcon() {
   );
 }
 
+// Shield icon — feature bullet
 function ShieldIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -49,39 +79,58 @@ function ShieldIcon() {
   );
 }
 
+/**
+ * Register — the registration page component.
+ */
 export default function Register() {
+  // Form state — one object for all fields
   const [form, setForm] = useState({
     name: "",
     email: "",
     password: "",
     businessName: "",
-    category: "salon",
+    category: "salon", // default category
   });
+  // Error message (shown if registration fails)
   const [error, setError] = useState("");
+  // True while the registration request is in progress
   const [submitting, setSubmitting] = useState(false);
+  // Get the register function from auth context
   const { register } = useAuth();
+  // For redirecting after successful registration
   const navigate = useNavigate();
 
+  /**
+   * handleChange — a single handler for all form inputs.
+   * Uses the input's `name` attribute to update the correct field.
+   */
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  /**
+   * handleSubmit — called when the form is submitted.
+   * Creates the account (user + business) and redirects to the dashboard.
+   */
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setSubmitting(true);
+    e.preventDefault(); // don't reload the page
+    setError("");       // clear any previous error
+    setSubmitting(true); // show loading state
+
     try {
+      // Register with role "owner" (this creates a business too)
       await register({ ...form, role: "owner" });
-      navigate("/dashboard");
+      navigate("/dashboard"); // redirect to the dashboard
     } catch (err) {
-      setError(err.message);
+      setError(err.message); // show the error message
     } finally {
-      setSubmitting(false);
+      setSubmitting(false); // always stop loading
     }
   };
 
   return (
     <div className="auth-layout">
+      {/* Left panel: branding + features */}
       <div className="auth-left">
         <div className="auth-left-content">
           <div className="auth-logo"><LogoIcon /></div>
@@ -110,18 +159,24 @@ export default function Register() {
           </div>
         </div>
       </div>
+
+      {/* Right panel: the registration form */}
       <div className="auth-right">
         <div className="auth-form-container">
           <h2>Create your account</h2>
           <p className="auth-subtitle">
             Get started with your AI-powered front desk
           </p>
+
+          {/* Error message (if any) */}
           {error && (
             <div className="auth-error">
               <span>⚠</span> {error}
             </div>
           )}
+
           <form onSubmit={handleSubmit}>
+            {/* Full name */}
             <div className="form-group">
               <label>Full name</label>
               <input
@@ -132,6 +187,8 @@ export default function Register() {
                 required
               />
             </div>
+
+            {/* Email */}
             <div className="form-group">
               <label>Email address</label>
               <input
@@ -143,6 +200,8 @@ export default function Register() {
                 required
               />
             </div>
+
+            {/* Password */}
             <div className="form-group">
               <label>Password</label>
               <input
@@ -155,6 +214,8 @@ export default function Register() {
                 minLength={6}
               />
             </div>
+
+            {/* Business name */}
             <div className="form-group">
               <label>Business name</label>
               <input
@@ -165,6 +226,8 @@ export default function Register() {
                 required
               />
             </div>
+
+            {/* Business category dropdown */}
             <div className="form-group">
               <label>Business category</label>
               <select
@@ -180,6 +243,8 @@ export default function Register() {
                 <option value="other">Other</option>
               </select>
             </div>
+
+            {/* Submit button — disabled while submitting */}
             <button
               className="btn btn-primary btn-lg"
               style={{ width: "100%", marginTop: "0.5rem" }}
@@ -189,6 +254,8 @@ export default function Register() {
               {submitting ? "Creating account..." : "Create account"}
             </button>
           </form>
+
+          {/* Link to login page */}
           <p className="auth-footer">
             Already have an account? <Link to="/login">Sign in</Link>
           </p>

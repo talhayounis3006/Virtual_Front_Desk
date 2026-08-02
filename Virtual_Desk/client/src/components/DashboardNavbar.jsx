@@ -1,6 +1,30 @@
+/**
+ * ============================================================
+ *  DASHBOARD NAVBAR — components/DashboardNavbar.jsx
+ * ============================================================
+ *  The top navigation bar shown on the business dashboard pages.
+ *
+ *  WHAT IT CONTAINS:
+ *  - Search bar (left)
+ *  - Current page title + date (center)
+ *  - Action buttons: notifications, settings, help (right)
+ *  - "New reservation" button
+ *
+ *  KEY CONCEPTS TO LEARN:
+ *  - This is a presentational component (no state, no API calls)
+ *  - Inline SVG icons are defined as small components
+ *  - Uses `new Date().toLocaleDateString()` to show today's date
+ * ============================================================
+ */
+
+// React (needed for JSX)
 import React from "react";
+// Link: for client-side navigation
 import { Link } from "react-router-dom";
 
+/* ---- SVG ICON COMPONENTS ---- */
+
+// Bell icon — notifications
 function BellIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -10,6 +34,7 @@ function BellIcon() {
   );
 }
 
+// Gear icon — settings
 function SettingsIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -19,6 +44,7 @@ function SettingsIcon() {
   );
 }
 
+// Question mark icon — help
 function HelpIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -29,20 +55,29 @@ function HelpIcon() {
   );
 }
 
+/**
+ * DashboardNavbar — the top bar for the dashboard layout.
+ * Rendered by OwnerRoute in App.jsx.
+ */
 export default function DashboardNavbar() {
   return (
     <nav className="dashboard-navbar">
+      {/* Left: search bar */}
       <div className="dashboard-navbar-left">
         <div className="search-bar">
           <input type="text" placeholder="Search..." />
         </div>
       </div>
+
+      {/* Center: current page title + today's date */}
       <div className="dashboard-navbar-center">
         <span className="current-page-title">Daily Operation / Dashboard</span>
         <span className="current-date">
           Today | {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
         </span>
       </div>
+
+      {/* Right: action buttons */}
       <div className="dashboard-navbar-right">
         <button className="icon-button"><BellIcon /></button>
         <button className="icon-button"><SettingsIcon /></button>

@@ -1,33 +1,74 @@
+/**
+ * ============================================================
+ *  BOOKINGS PAGE — pages/Bookings.jsx
+ * ============================================================
+ *  The business owner's booking management page.
+ *
+ *  WHAT IT DOES:
+ *  - Lists all bookings for the business
+ *  - Clicking a booking opens a detail modal
+ *  - Allows editing: assigned staff, status, and notes
+ *  - Saves changes via the API
+ *
+ *  KEY CONCEPTS TO LEARN:
+ *  1. Modal pattern: overlay + content with click-outside-to-close
+ *  2. Controlled form fields: editStaff, editStatus, editNotes
+ *  3. Data refresh: loadBookings() is called after saving changes
+ *  4. Inline styles: some styles are defined directly in JSX
+ * ============================================================
+ */
+
+// React hooks
 import { useState, useEffect } from "react";
+// API helper
 import { api } from "../services/api.js";
 
+// All possible booking statuses (for the status dropdown)
 const STATUS_OPTIONS = ["pending", "confirmed", "completed", "cancelled", "no-show"];
+// Available staff members (for the staff dropdown)
 const STAFF_OPTIONS = ["Sarah Mitchell", "James Chen", "Emily Rodriguez"];
 
+/**
+ * Bookings — the booking management page.
+ */
 export default function Bookings() {
+  // All bookings for the business
   const [bookings, setBookings] = useState([]);
+  // Loading state
   const [loading, setLoading] = useState(true);
+  // Error message
   const [error, setError] = useState("");
 
-  // Modal state
+  // ---- MODAL STATE ----
+  // The booking currently being edited (null = modal closed)
   const [selectedBooking, setSelectedBooking] = useState(null);
+  // Edit form values (initialized when the modal opens)
   const [editStaff, setEditStaff] = useState("");
   const [editStatus, setEditStatus] = useState("");
   const [editNotes, setEditNotes] = useState("");
+  // True while saving changes
   const [saving, setSaving] = useState(false);
 
+  /**
+   * loadBookings — fetches all bookings from the API.
+   */
   const loadBookings = () => {
     setLoading(true);
     setError("");
     api.bookings
-      .getAll()
+      .getAll() // GET /api/bookings/all
       .then(setBookings)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   };
 
+  // Load bookings on component mount
   useEffect(loadBookings, []);
 
+  /**
+   * openModal — opens the detail modal for a booking.
+   * Initializes the edit form values from the booking data.
+   */
   const openModal = (booking) => {
     setSelectedBooking(booking);
     setEditStaff(booking.staff || "");
@@ -35,29 +76,37 @@ export default function Bookings() {
     setEditNotes(booking.notes || "");
   };
 
+  /**
+   * closeModal — closes the detail modal.
+   */
   const closeModal = () => {
     setSelectedBooking(null);
     setSaving(false);
   };
 
+  /**
+   * saveChanges — saves the edited booking details to the API.
+   */
   const saveChanges = async () => {
     if (!selectedBooking) return;
     setSaving(true);
     setError("");
     try {
+      // PUT /api/bookings/:id with the edited fields
       await api.bookings.update(selectedBooking._id, {
         staff: editStaff,
         status: editStatus,
         notes: editNotes,
       });
-      closeModal();
-      loadBookings();
+      closeModal();      // close the modal
+      loadBookings();    // refresh the list with updated data
     } catch (err) {
       setError(err.message);
       setSaving(false);
     }
   };
 
+  // Loading state
   if (loading)
     return (
       <div className="loading-page">
@@ -65,16 +114,19 @@ export default function Bookings() {
       </div>
     );
 
+  // Avatar color rotation
   const colors = ["blue", "green", "purple", "amber", "rose"];
 
   return (
     <div>
+      {/* Page header */}
       <div className="page-header">
         <h1>Bookings</h1>
         <p className="page-subtitle">Manage all your appointments in one place</p>
       </div>
 
       <div className="page-body">
+        {/* Error message */}
         {error && (
           <div className="auth-error" style={{ marginBottom: "1rem" }}>
             <span>⚠️</span> {error}
@@ -82,6 +134,7 @@ export default function Bookings() {
         )}
 
         <div className="card">
+          {/* Empty state */}
           {bookings.length === 0 && (
             <div className="empty-state">
               <div className="empty-state-icon">
@@ -96,6 +149,8 @@ export default function Bookings() {
               <p>Appointments from customers will appear here</p>
             </div>
           )}
+
+          {/* List of bookings — click to open the detail modal */}
           {bookings.map((b, i) => (
             <div
               key={b._id}
@@ -131,9 +186,10 @@ export default function Bookings() {
         </div>
       </div>
 
-      {/* Detail Modal */}
+      {/* ---- DETAIL MODAL ---- */}
       {selectedBooking && (
         <div className="modal-overlay" onClick={closeModal}>
+          {/* stopPropagation prevents closing when clicking INSIDE the modal */}
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Booking Details</h2>
@@ -141,6 +197,7 @@ export default function Bookings() {
             </div>
 
             <div className="modal-body">
+              {/* Read-only booking details */}
               <div className="detail-grid">
                 <div className="detail-field">
                   <label>Customer Name</label>
@@ -178,6 +235,7 @@ export default function Bookings() {
 
               <hr style={{ margin: "1.5rem 0", border: "none", borderTop: "1px solid var(--border)" }} />
 
+              {/* Editable fields */}
               <div className="form-group">
                 <label>Assigned Staff</label>
                 <select
@@ -214,6 +272,7 @@ export default function Bookings() {
               </div>
             </div>
 
+            {/* Modal footer: cancel + save buttons */}
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={closeModal}>
                 Cancel
@@ -230,6 +289,7 @@ export default function Bookings() {
         </div>
       )}
 
+      {/* Modal CSS (scoped to this component) */}
       <style>{`
         .modal-overlay {
           position: fixed;

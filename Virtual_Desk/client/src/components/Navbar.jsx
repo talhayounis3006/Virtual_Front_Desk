@@ -1,6 +1,30 @@
+/**
+ * ============================================================
+ *  NAVBAR — components/Navbar.jsx
+ * ============================================================
+ *  The top navigation bar shown on PUBLIC pages (landing, booking, login).
+ *
+ *  WHAT IT DOES:
+ *  - Shows the FrontDesk logo/brand
+ *  - If logged in as a customer: shows their name + sign out button
+ *  - If not logged in: shows "Log in" and "Get Started" links
+ *  - Hides itself for owner/staff users (they use the Sidebar instead)
+ *
+ *  KEY CONCEPTS TO LEARN:
+ *  - Conditional rendering: different UI based on auth state
+ *  - useAuth hook: accesses the global auth context
+ *  - useNavigate: programmatic navigation (redirect after logout)
+ * ============================================================
+ */
+
+// React Router hooks
 import { Link, useNavigate } from "react-router-dom";
+// Auth context
 import { useAuth } from "../context/AuthContext.jsx";
 
+/* ---- SVG ICON COMPONENT ---- */
+
+// Building icon — the FrontDesk logo
 function LogoIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -15,12 +39,20 @@ function LogoIcon() {
   );
 }
 
+/**
+ * Navbar — the public top navigation bar.
+ */
 export default function Navbar() {
+  // Get the current user and logout function from auth context
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
+  // Owner/staff users don't see this navbar — they use the Sidebar layout
   if (user && user.role !== "customer") return null;
 
+  /**
+   * handleLogout — logs out and redirects to the login page.
+   */
   const handleLogout = () => {
     logout();
     navigate("/login");
@@ -28,12 +60,16 @@ export default function Navbar() {
 
   return (
     <nav className="top-nav">
+      {/* Brand/logo link to home */}
       <Link to="/" className="top-nav-brand">
         <LogoIcon />
         FrontDesk
       </Link>
+
+      {/* Right side: auth-dependent links */}
       <div className="top-nav-links">
         {user ? (
+          // Logged in as customer
           <>
             {user.role === "customer" && (
               <Link to="/dashboard">Dashboard</Link>
@@ -46,6 +82,7 @@ export default function Navbar() {
             </button>
           </>
         ) : (
+          // Not logged in
           <>
             <Link to="/login">Log in</Link>
             <Link to="/register" className="btn btn-primary btn-sm">

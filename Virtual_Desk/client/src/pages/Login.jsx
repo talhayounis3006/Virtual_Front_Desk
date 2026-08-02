@@ -1,7 +1,33 @@
+/**
+ * ============================================================
+ *  LOGIN PAGE — pages/Login.jsx
+ * ============================================================
+ *  The login page where users sign in to their account.
+ *
+ *  WHAT IT DOES:
+ *  - Shows a form with email + password fields
+ *  - Calls the login API on submit
+ *  - Redirects to /dashboard on success
+ *  - Shows an error message on failure
+ *
+ *  KEY CONCEPTS TO LEARN:
+ *  1. Controlled inputs: form fields are bound to React state
+ *  2. Form submission: handleSubmit prevents default browser behavior
+ *  3. Loading state: disables the button while submitting
+ *  4. Error handling: catches and displays API errors
+ * ============================================================
+ */
+
+// React hooks
 import { useState } from "react";
+// React Router hooks
 import { useNavigate, Link } from "react-router-dom";
+// Auth context
 import { useAuth } from "../context/AuthContext.jsx";
 
+/* ---- SVG ICON COMPONENTS ---- */
+
+// Building icon — logo
 function LogoIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -16,6 +42,7 @@ function LogoIcon() {
   );
 }
 
+// Calendar icon — feature bullet
 function CalendarIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -27,6 +54,7 @@ function CalendarIcon() {
   );
 }
 
+// Robot icon — feature bullet
 function RobotIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -40,6 +68,7 @@ function RobotIcon() {
   );
 }
 
+// Star icon — feature bullet
 function StarIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -48,30 +77,45 @@ function StarIcon() {
   );
 }
 
+/**
+ * Login — the login page component.
+ */
 export default function Login() {
+  // Form state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  // Error message (shown if login fails)
   const [error, setError] = useState("");
+  // True while the login request is in progress
   const [submitting, setSubmitting] = useState(false);
+  // Get the login function from auth context
   const { login } = useAuth();
+  // For redirecting after successful login
   const navigate = useNavigate();
 
+  /**
+   * handleSubmit — called when the form is submitted.
+   * Prevents the default page reload, calls the login API,
+   * and redirects to the dashboard on success.
+   */
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setSubmitting(true);
+    e.preventDefault(); // don't reload the page
+    setError("");       // clear any previous error
+    setSubmitting(true); // show loading state
+
     try {
-      await login(email, password);
-      navigate("/dashboard");
+      await login(email, password); // call the auth context login
+      navigate("/dashboard");       // redirect to the dashboard
     } catch (err) {
-      setError(err.message);
+      setError(err.message); // show the error message
     } finally {
-      setSubmitting(false);
+      setSubmitting(false); // always stop loading
     }
   };
 
   return (
     <div className="auth-layout">
+      {/* Left panel: branding + features */}
       <div className="auth-left">
         <div className="auth-left-content">
           <div className="auth-logo"><LogoIcon /></div>
@@ -96,18 +140,24 @@ export default function Login() {
           </div>
         </div>
       </div>
+
+      {/* Right panel: the login form */}
       <div className="auth-right">
         <div className="auth-form-container">
           <h2>Sign in to your account</h2>
           <p className="auth-subtitle">
             Enter your credentials to access your dashboard
           </p>
+
+          {/* Error message (if any) */}
           {error && (
             <div className="auth-error">
               <span>⚠</span> {error}
             </div>
           )}
+
           <form onSubmit={handleSubmit}>
+            {/* Email field */}
             <div className="form-group">
               <label>Email address</label>
               <input
@@ -118,6 +168,8 @@ export default function Login() {
                 required
               />
             </div>
+
+            {/* Password field */}
             <div className="form-group">
               <label>Password</label>
               <input
@@ -128,6 +180,8 @@ export default function Login() {
                 required
               />
             </div>
+
+            {/* Submit button — disabled while submitting */}
             <button
               className="btn btn-primary btn-lg"
               style={{ width: "100%", marginTop: "0.5rem" }}
@@ -137,6 +191,8 @@ export default function Login() {
               {submitting ? "Signing in..." : "Sign in"}
             </button>
           </form>
+
+          {/* Link to register page */}
           <p className="auth-footer">
             Don't have an account?{" "}
             <Link to="/register">Create one for free</Link>
