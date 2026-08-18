@@ -121,8 +121,8 @@ export default function Login() {
           <div className="auth-logo"><LogoIcon /></div>
           <h2>Welcome back</h2>
           <p>
-            Sign in to manage your bookings, view analytics, and grow your
-            business with AI-powered customer support.
+            Review today’s schedule, respond to customers, and keep the details
+            of your operation in one place.
           </p>
           <div className="auth-features">
             <div className="auth-feature">
@@ -131,7 +131,7 @@ export default function Login() {
             </div>
             <div className="auth-feature">
               <RobotIcon />
-              AI assistant for your customers
+              Customer conversations, organized
             </div>
             <div className="auth-feature">
               <StarIcon />
@@ -152,7 +152,7 @@ export default function Login() {
           {/* Error message (if any) */}
           {error && (
             <div className="auth-error">
-              <span>⚠</span> {error}
+              {error}
             </div>
           )}
 

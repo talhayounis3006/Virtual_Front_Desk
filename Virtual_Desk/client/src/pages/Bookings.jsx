@@ -129,7 +129,7 @@ export default function Bookings() {
         {/* Error message */}
         {error && (
           <div className="auth-error" style={{ marginBottom: "1rem" }}>
-            <span>⚠️</span> {error}
+            {error}
           </div>
         )}
 

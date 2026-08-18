@@ -173,7 +173,7 @@ export default function Settings() {
         {/* Error/success messages */}
         {error && (
           <div className="auth-error" style={{ marginBottom: "1rem" }}>
-            <span>⚠️</span> {error}
+            {error}
           </div>
         )}
         {success && (

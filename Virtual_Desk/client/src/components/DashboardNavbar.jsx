@@ -17,22 +17,8 @@
  * ============================================================
  */
 
-// React (needed for JSX)
-import React from "react";
 // Link: for client-side navigation
 import { Link } from "react-router-dom";
-
-/* ---- SVG ICON COMPONENTS ---- */
-
-// Bell icon — notifications
-function BellIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-    </svg>
-  );
-}
 
 // Gear icon — settings
 function SettingsIcon() {
@@ -44,17 +30,6 @@ function SettingsIcon() {
   );
 }
 
-// Question mark icon — help
-function HelpIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-      <path d="M12 17h.01" />
-    </svg>
-  );
-}
-
 /**
  * DashboardNavbar — the top bar for the dashboard layout.
  * Rendered by OwnerRoute in App.jsx.
@@ -62,11 +37,9 @@ function HelpIcon() {
 export default function DashboardNavbar() {
   return (
     <nav className="dashboard-navbar">
-      {/* Left: search bar */}
+      {/* Left: workspace context */}
       <div className="dashboard-navbar-left">
-        <div className="search-bar">
-          <input type="text" placeholder="Search..." />
-        </div>
+        <span className="workspace-label">OPERATIONS</span>
       </div>
 
       {/* Center: current page title + today's date */}
@@ -79,11 +52,11 @@ export default function DashboardNavbar() {
 
       {/* Right: action buttons */}
       <div className="dashboard-navbar-right">
-        <button className="icon-button"><BellIcon /></button>
-        <button className="icon-button"><SettingsIcon /></button>
-        <button className="icon-button"><HelpIcon /></button>
-        <Link to="/new-reservation" className="btn btn-primary">
-          + New reservation
+        <Link to="/settings" className="icon-button" aria-label="Open settings">
+          <SettingsIcon />
+        </Link>
+        <Link to="/bookings" className="btn btn-primary">
+          Manage bookings
         </Link>
       </div>
     </nav>

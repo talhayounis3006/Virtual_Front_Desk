@@ -134,27 +134,27 @@ export default function Register() {
       <div className="auth-left">
         <div className="auth-left-content">
           <div className="auth-logo"><LogoIcon /></div>
-          <h2>Start your free trial</h2>
+          <h2>Build a better daily rhythm</h2>
           <p>
-            Set up your virtual front desk in under 5 minutes. No credit card
-            required.
+            Create one workspace for appointments, customer messages, and the
+            day-to-day details that matter.
           </p>
           <div className="auth-features">
             <div className="auth-feature">
               <CheckIcon />
-              14-day free trial, no card needed
+              A focused workspace for your team
             </div>
             <div className="auth-feature">
               <ZapIcon />
-              AI handles customer inquiries 24/7
+              Clear, consistent customer communication
             </div>
             <div className="auth-feature">
               <TrendingIcon />
-              Increase bookings by up to 40%
+              Booking details in one dependable place
             </div>
             <div className="auth-feature">
               <ShieldIcon />
-              Enterprise-grade security
+              Privacy-conscious access controls
             </div>
           </div>
         </div>
@@ -165,13 +165,13 @@ export default function Register() {
         <div className="auth-form-container">
           <h2>Create your account</h2>
           <p className="auth-subtitle">
-            Get started with your AI-powered front desk
+            Set up your business workspace in a few steps
           </p>
 
           {/* Error message (if any) */}
           {error && (
             <div className="auth-error">
-              <span>⚠</span> {error}
+              {error}
             </div>
           )}
 

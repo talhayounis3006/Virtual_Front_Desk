@@ -186,7 +186,7 @@ export default function ChatWidget({ businessSlug }) {
             {/* Welcome message when no messages yet */}
             {messages.length === 0 && (
               <div className="chat-widget-welcome">
-                <p>👋 Hi! I'm the AI assistant. Ask me about services, pricing, hours, or availability!</p>
+                <p>Welcome. Ask about services, pricing, hours, or availability.</p>
               </div>
             )}
             {/* Render each message */}

@@ -24,6 +24,15 @@ import { useSearchParams, Link } from "react-router-dom";
 // API helper
 import { api } from "../services/api.js";
 
+function ConfirmationIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8 12 2.5 2.5L16 9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 /**
  * BookingSuccess — the payment confirmation page.
  */
@@ -71,8 +80,8 @@ export default function BookingSuccess() {
         <div className="booking-form-wrapper">
           <div className="booking-form-card">
             <div className="booking-success">
-              <div className="booking-success-icon" style={{ fontSize: "3rem" }}>✅</div>
-              <h2>Payment Successful!</h2>
+              <div className="booking-success-icon"><ConfirmationIcon /></div>
+              <h2>Payment received</h2>
               <p>Your payment was processed successfully. If you don't see your booking details below, please contact the business.</p>
               {error && <p style={{ color: "var(--danger)", marginTop: "0.5rem" }}>{error}</p>}
               <Link to="/" className="btn btn-primary" style={{ marginTop: "1.5rem", display: "inline-block" }}>
@@ -91,8 +100,8 @@ export default function BookingSuccess() {
         <div className="booking-form-card">
           <div className="booking-success">
             {/* Success icon */}
-            <div className="booking-success-icon">✅</div>
-            <h2>Booking Confirmed!</h2>
+            <div className="booking-success-icon"><ConfirmationIcon /></div>
+            <h2>Booking confirmed</h2>
             <p>
               Thank you for booking with <strong>{booking.business?.name}</strong>.
             </p>

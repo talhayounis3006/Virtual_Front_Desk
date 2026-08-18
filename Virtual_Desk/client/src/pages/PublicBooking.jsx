@@ -196,7 +196,7 @@ export default function PublicBooking() {
       {cancelled && (
         <div className="booking-form-wrapper">
           <div className="auth-error" style={{ marginBottom: "1rem" }}>
-            <span>⚠️</span> Payment was cancelled. Your time is not confirmed until payment is complete.
+            Payment was cancelled. Your time is not confirmed until payment is complete.
           </div>
         </div>
       )}
@@ -215,7 +215,7 @@ export default function PublicBooking() {
                 onClick={() => i < step && setStep(i)} // allow going back to completed steps
               >
                 <div className="booking-step-number">
-                  {i < step ? "✓" : i + 1} {/* checkmark for completed steps */}
+                  {i + 1}
                 </div>
                 <div className="booking-step-label">
                   {s === "service" ? "Service" : s === "datetime" ? "Date & Time" : s === "info" ? "Your Info" : "Payment"}
@@ -227,7 +227,7 @@ export default function PublicBooking() {
           {/* Error message */}
           {error && (
             <div className="auth-error">
-              <span>⚠️</span> {error}
+              {error}
             </div>
           )}
 
