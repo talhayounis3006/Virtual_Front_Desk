@@ -160,7 +160,7 @@ export default function PublicBooking() {
       });
 
       // 2. Create Stripe Checkout Session
-      const session = await api.payments.createCheckoutSession(booking._id);
+      const session = await api.payments.createCheckoutSession(booking._id, booking.paymentAccessToken);
 
       // 3. Redirect to Stripe Checkout (hosted payment page)
       window.location.href = session.url;

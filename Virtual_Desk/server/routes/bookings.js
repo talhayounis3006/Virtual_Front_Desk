@@ -23,13 +23,15 @@
 
 // Express Router
 import express from "express";
+import crypto from "crypto";
+import validator from "validator";
 // Models
 import Booking from "../models/Booking.js";
 import Business from "../models/Business.js";
 import BusinessSettings from "../models/BusinessSettings.js";
-import User from "../models/User.js";
 // Auth middleware
 import { protect, authorize } from "../middleware/auth.js";
+import { getBusinessForUser } from "../utils/getBusinessForUser.js";
 
 const router = express.Router();
 
@@ -53,7 +55,12 @@ router.get("/business/:businessId", async (req, res) => {
     }
     
     // Sort by date then time for a chronological view
-    const bookings = await Booking.find(query).sort({ date: 1, time: 1 });
+    // This route is used only to calculate availability. Never expose customer
+    // names, emails, notes, payment metadata, or internal booking IDs publicly.
+    const bookings = await Booking.find(query)
+      .select("date time duration status")
+      .sort({ date: 1, time: 1 })
+      .lean();
     res.json(bookings);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -98,6 +105,15 @@ router.post("/", async (req, res) => {
     // 1. Check required fields
     if (!businessId || !serviceId || !customerName || !customerEmail || !date || !time) {
       return res.status(400).json({ message: "Missing required fields" });
+    }
+    if (!validator.isEmail(customerEmail) || customerName.trim().length < 2 || customerName.trim().length > 100) {
+      return res.status(400).json({ message: "Please provide a valid name and email address" });
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(new Date(`${date}T00:00:00`).getTime())) {
+      return res.status(400).json({ message: "Please provide a valid booking date" });
+    }
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+      return res.status(400).json({ message: "Please provide a valid booking time" });
     }
 
     // 2. Check business exists
@@ -160,18 +176,24 @@ router.post("/", async (req, res) => {
     // All validations passed — create the booking
     const booking = await Booking.create({
       business: businessId,
-      service: serviceId, // store the service ID (name is looked up later)
-      customerName,
-      customerEmail,
-      customerPhone,
+      service: selectedService.name,
+      customerName: customerName.trim(),
+      customerEmail: customerEmail.trim().toLowerCase(),
+      customerPhone: customerPhone?.trim(),
       price: selectedService.price, // snapshot the price at booking time
       date: new Date(date),
       time,
       duration: selectedService.duration, // snapshot the duration
       notes: notes || "",
+      checkoutToken: crypto.randomBytes(32).toString("hex"),
     });
 
-    res.status(201).json(booking);
+    const response = booking.toObject();
+    delete response.checkoutToken;
+    res.status(201).json({
+      ...response,
+      paymentAccessToken: booking.checkoutToken,
+    });
   } catch (error) {
     console.error("Booking creation error:", error);
     res.status(500).json({ message: "Failed to create booking" });
@@ -185,12 +207,15 @@ router.post("/", async (req, res) => {
  */
 router.put("/:id/status", protect, authorize("owner", "staff"), async (req, res) => {
   try {
-    // findByIdAndUpdate: find by ID and update in one operation
-    // { new: true } returns the UPDATED document (not the old one)
+    const business = await getBusinessForUser(req.user._id);
+    if (!business) {
+      return res.status(404).json({ message: "Business not found" });
+    }
+
     const booking = await Booking.findByIdAndUpdate(
-      req.params.id,
+      { _id: req.params.id, business: business._id },
       { status: req.body.status },
-      { new: true }
+      { new: true, runValidators: true }
     );
     if (!booking) {
       return res.status(404).json({ message: "Booking not found" });
@@ -208,6 +233,11 @@ router.put("/:id/status", protect, authorize("owner", "staff"), async (req, res)
  */
 router.put("/:id", protect, authorize("owner", "staff"), async (req, res) => {
   try {
+    const business = await getBusinessForUser(req.user._id);
+    if (!business) {
+      return res.status(404).json({ message: "Business not found" });
+    }
+
     const { staff, notes, status } = req.body;
     
     // Build the update object dynamically — only include fields that were provided
@@ -218,9 +248,9 @@ router.put("/:id", protect, authorize("owner", "staff"), async (req, res) => {
 
     // $set only updates the specified fields (doesn't overwrite the whole doc)
     const booking = await Booking.findByIdAndUpdate(
-      req.params.id,
+      { _id: req.params.id, business: business._id },
       { $set: updateData },
-      { new: true }
+      { new: true, runValidators: true }
     );
     if (!booking) {
       return res.status(404).json({ message: "Booking not found" });
@@ -239,15 +269,8 @@ router.put("/:id", protect, authorize("owner", "staff"), async (req, res) => {
 router.get("/all", protect, authorize("owner", "staff"), async (req, res) => {
   try {
     // Find the business owned by this user
-    let business = await Business.findOne({ owner: req.user._id });
-    if (!business) {
-      // For staff users, find the business via their user record
-      const user = await User.findById(req.user._id).populate("business");
-      if (!user || !user.business) {
-        return res.status(404).json({ message: "Business not found" });
-      }
-      business = user.business;
-    }
+    const business = await getBusinessForUser(req.user._id);
+    if (!business) return res.status(404).json({ message: "Business not found" });
 
     // Get the most recent 100 bookings for this business
     const bookings = await Booking.find({ business: business._id })
@@ -268,14 +291,8 @@ router.get("/all", protect, authorize("owner", "staff"), async (req, res) => {
 router.get("/dashboard", protect, authorize("owner", "staff"), async (req, res) => {
   try {
     // Find the user's business (owner or staff)
-    let business = await Business.findOne({ owner: req.user._id });
-    if (!business) {
-      const user = await User.findById(req.user._id).populate("business");
-      if (!user || !user.business) {
-        return res.status(404).json({ message: "Business not found" });
-      }
-      business = user.business;
-    }
+    const business = await getBusinessForUser(req.user._id);
+    if (!business) return res.status(404).json({ message: "Business not found" });
 
     // Calculate today's date range
     const today = new Date();

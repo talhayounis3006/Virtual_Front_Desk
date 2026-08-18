@@ -36,10 +36,9 @@ const router = express.Router();
 router.get("/slug/:slug", async (req, res) => {
   try {
     // Find the business by slug and include the owner's name
-    const business = await Business.findOne({ slug: req.params.slug }).populate(
-      "owner",
-      "name" // only include the owner's name field
-    );
+    const business = await Business.findOne({ slug: req.params.slug })
+      .select("name slug description category services businessHours address phone email aiEnabled")
+      .lean();
     if (!business) {
       return res.status(404).json({ message: "Business not found" });
     }
@@ -74,12 +73,33 @@ router.get("/mine", protect, async (req, res) => {
  */
 router.put("/mine", protect, authorize("owner"), async (req, res) => {
   try {
+    const allowedFields = [
+      "name",
+      "description",
+      "category",
+      "businessHours",
+      "address",
+      "phone",
+      "email",
+      "aiEnabled",
+      "reviewAutomation",
+    ];
+    const updates = Object.fromEntries(
+      allowedFields
+        .filter((field) => req.body[field] !== undefined)
+        .map((field) => [field, req.body[field]])
+    );
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: "No supported business fields were provided" });
+    }
+
     // findOneAndUpdate: find by owner and update in one operation
     // { new: true } returns the updated document
     // { runValidators: true } runs schema validation on the update
     const business = await Business.findOneAndUpdate(
       { owner: req.user._id },
-      req.body, // update with whatever fields were sent
+      { $set: updates },
       { new: true, runValidators: true }
     );
     if (!business) {

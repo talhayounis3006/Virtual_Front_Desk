@@ -41,7 +41,7 @@ const router = express.Router();
 router.post("/register", async (req, res) => {
   try {
     // Destructure the request body fields
-    const { name, email, password, role, businessName, category } = req.body;
+    const { name, email, password, businessName, category } = req.body;
 
     // ---- INPUT VALIDATION ----
     // Check required fields exist
@@ -86,11 +86,13 @@ router.post("/register", async (req, res) => {
       name: validator.escape(name.trim()),
       email: email.toLowerCase().trim(),
       password,
-      role: role || "owner", // default to "owner" if no role provided
+      // Public registration creates business owners only. Staff members must be
+      // created by an authenticated owner through a dedicated invitation flow.
+      role: "owner",
     });
 
     // ---- CREATE A BUSINESS (if owner/staff with a business name) ----
-    if (role !== "customer" && businessName) {
+    if (businessName) {
       const business = await Business.create({
         owner: user._id,
         name: validator.escape(businessName.trim()),

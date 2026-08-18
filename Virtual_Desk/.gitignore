@@ -13,6 +13,8 @@ node_modules/
 # NEVER commit .env files to Git!
 .env
 .env.local
+.env.*
+!.env.example
 
 # Build output — generated when you run `npm run build`
 dist/
@@ -23,3 +25,4 @@ build/
 
 # Log files
 *.log
+coverage/

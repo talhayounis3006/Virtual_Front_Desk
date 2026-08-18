@@ -58,12 +58,11 @@ dotenv.config();
 const app = express();
 // The port the server will listen on — from .env or default to 5000
 const PORT = process.env.PORT || 5000;
+const isProduction = process.env.NODE_ENV === "production";
 
-// Connect to MongoDB (uses in-memory DB if no MONGODB_URI is set)
-connectDB();
-
-// Start scheduled jobs (e.g., 9 AM reminder emails, 10 AM review requests)
-initScheduler();
+if (isProduction && !process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET is required in production");
+}
 
 // ---- SECURITY & PARSING MIDDLEWARE ----
 // Middleware = functions that run between receiving a request and sending a response.
@@ -73,9 +72,15 @@ initScheduler();
 app.use(helmet());
 
 // cors() allows the React frontend (running on localhost:3000) to call this API
+const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:3000")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 app.use(cors({
-  origin: process.env.CLIENT_URL || "http://localhost:3000",
-  credentials: true, // allow cookies/auth headers to be sent cross-origin
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error("Origin is not allowed by CORS"));
+  },
 }));
 
 // compression() compresses response bodies (smaller payloads = faster loading)
@@ -108,6 +113,15 @@ const limiter = rateLimit({
 });
 // Apply the rate limiter to all /api/ routes
 app.use("/api/", limiter);
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: "Too many sign-in attempts. Please try again later.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use("/api/auth/login", authLimiter);
 
 // ---- ROUTES ----
 // Each router handles a specific domain. The prefix determines the URL path.
@@ -173,6 +187,17 @@ app.use((req, res) => {
 
 // ---- START THE SERVER ----
 // app.listen() starts the HTTP server and begins accepting requests
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
-});
+async function startServer() {
+  try {
+    await connectDB();
+    initScheduler();
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT} in ${process.env.NODE_ENV || "development"} mode`);
+    });
+  } catch (error) {
+    console.error("Unable to start server:", error.message);
+    process.exit(1);
+  }
+}
+
+startServer();

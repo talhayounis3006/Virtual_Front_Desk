@@ -109,8 +109,8 @@ export const api = {
 
   // ---- PAYMENTS (Stripe) ----
   payments: {
-    createCheckoutSession: (bookingId) =>
-      request("/payments/create-checkout-session", { method: "POST", body: JSON.stringify({ bookingId }) }),
+    createCheckoutSession: (bookingId, paymentAccessToken) =>
+      request("/payments/create-checkout-session", { method: "POST", body: JSON.stringify({ bookingId, paymentAccessToken }) }),
     getSession: (sessionId) => request(`/payments/session/${sessionId}`),
   },
 

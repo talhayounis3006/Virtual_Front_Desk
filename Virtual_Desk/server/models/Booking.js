@@ -76,6 +76,9 @@ const bookingSchema = new mongoose.Schema(
     // Stripe payment tracking
     stripeSessionId: { type: String, default: "" },       // Stripe Checkout session ID
     stripePaymentIntentId: { type: String, default: "" }, // Stripe PaymentIntent ID (after payment)
+    // Capability token required to initiate payment for an unauthenticated booking.
+    // It is returned only once, to the browser that created the booking.
+    checkoutToken: { type: String, select: false },
   },
   { timestamps: true }
 );

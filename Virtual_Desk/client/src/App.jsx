@@ -37,7 +37,6 @@ import ChatLogs from "./pages/ChatLogs.jsx";
 import Settings from "./pages/Settings.jsx";
 import PublicBooking from "./pages/PublicBooking.jsx";
 import BookingSuccess from "./pages/BookingSuccess.jsx";
-import ImageSlider from "./components/ImageSlider.jsx";
 
 /* ============================================================
  *  SVG ICON COMPONENTS
@@ -91,15 +90,6 @@ function ChatIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
-  );
-}
-
-// Star icon — represents reviews
-function StarIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
     </svg>
   );
 }
@@ -243,58 +233,45 @@ function AppRoutes() {
         path="/"
         element={
           <PublicRoute>
-            <div className="hero-section">
-              <div className="hero-pattern" />
-              <div className="hero-content">
-                <div className="reception-desk">
-                  <div className="reception-counter">
-                    <div className="reception-badge">✦ AI-Powered Reception</div>
-                    <div className="reception-icon">
-                      <BuildingIcon />
-                    </div>
-                    <h1 className="reception-title">
-                      Welcome to Your<br />
-                      <span className="text-gradient">Virtual Front Desk</span>
-                    </h1>
-                    <p className="reception-subtitle">
-                      AI-powered booking and customer support platform for local
-                      service businesses. Open 24/7, never miss a customer.
-                    </p>
-                    <div className="reception-actions">
-                      <Link to="/register" className="btn btn-accent btn-lg">
-                        Start Free Trial
-                      </Link>
-                      <Link to="/login" className="btn btn-secondary btn-lg">
-                        Sign In
-                      </Link>
-                    </div>
+            <main className="landing-page">
+              <section className="landing-hero">
+                <div className="landing-copy">
+                  <div className="eyebrow"><span /> Built for appointment-based teams</div>
+                  <h1>Make every <em>first impression</em> count.</h1>
+                  <p>
+                    FrontDesk brings bookings, conversations, and follow-ups into one calm,
+                    dependable workspace—so your team can focus on people, not admin.
+                  </p>
+                  <div className="landing-actions">
+                    <Link to="/register" className="btn btn-accent btn-lg">Create your workspace <span>→</span></Link>
+                    <Link to="/login" className="landing-text-link">See your dashboard <span>→</span></Link>
                   </div>
-                  <ImageSlider />
-                  <div className="reception-features">
-                    <div className="feature-card">
-                      <div className="feature-icon"><RobotIcon /></div>
-                      <h3>AI Assistant</h3>
-                      <p>Handles customer inquiries 24/7, books appointments automatically</p>
-                    </div>
-                    <div className="feature-card">
-                      <div className="feature-icon"><CalendarIcon /></div>
-                      <h3>Smart Booking</h3>
-                      <p>Online booking with real-time availability and calendar sync</p>
-                    </div>
-                    <div className="feature-card">
-                      <div className="feature-icon"><ChatIcon /></div>
-                      <h3>Chat Logs</h3>
-                      <p>Review all AI-customer conversations and captured leads</p>
-                    </div>
-                    <div className="feature-card">
-                      <div className="feature-icon"><StarIcon /></div>
-                      <h3>Review Automation</h3>
-                      <p>Automatically request reviews after completed appointments</p>
+                  <div className="landing-proof">
+                    <div className="avatar-stack"><i>J</i><i>M</i><i>A</i></div>
+                    <span>Designed for service teams who care about the details.</span>
+                  </div>
+                </div>
+                <div className="product-frame" aria-label="FrontDesk dashboard preview">
+                  <div className="preview-topbar"><span className="preview-mark"><BuildingIcon /></span><b>Studio North</b><small>Tuesday, 12 March</small><i /></div>
+                  <div className="preview-body">
+                    <aside><span className="active">Overview</span><span>Calendar</span><span>Clients</span><span>Messages</span></aside>
+                    <div className="preview-content">
+                      <div className="preview-heading"><div><small>GOOD MORNING, MAYA</small><strong>Your day, at a glance.</strong></div><button>+ New booking</button></div>
+                      <div className="preview-stats"><div><small>TODAY'S BOOKINGS</small><b>12</b><span>+3 from yesterday</span></div><div><small>OPEN CONVERSATIONS</small><b>04</b><span>All replied within 8 min</span></div></div>
+                      <div className="preview-list"><div className="preview-list-title"><b>Up next</b><span>View calendar →</span></div><div className="appointment"><time>09:30<small>AM</small></time><span className="appointment-avatar">LM</span><div><b>Leah Martin</b><small>Signature facial · 60 min</small></div><em>Confirmed</em></div><div className="appointment"><time>11:00<small>AM</small></time><span className="appointment-avatar warm">CR</span><div><b>Camille Ross</b><small>Consultation · 30 min</small></div><em>Confirmed</em></div></div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
+              </section>
+              <section className="landing-value">
+                <div><span className="section-index">01 — THE ESSENTIALS</span><h2>A front desk that keeps moving when you can’t.</h2></div>
+                <div className="value-grid">
+                  <article><div className="feature-icon"><CalendarIcon /></div><h3>Bookings with context</h3><p>Clear availability, thoughtful confirmations, and an appointment history your team can trust.</p></article>
+                  <article><div className="feature-icon"><ChatIcon /></div><h3>Conversations, handled</h3><p>Give guests timely answers while keeping every interaction visible to your team.</p></article>
+                  <article><div className="feature-icon"><RobotIcon /></div><h3>Automation with restraint</h3><p>Use AI and reminders where they help—without making your customer experience feel robotic.</p></article>
+                </div>
+              </section>
+            </main>
           </PublicRoute>
         }
       />

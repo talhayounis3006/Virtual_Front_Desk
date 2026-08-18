@@ -32,27 +32,20 @@ let mongoServer;
  * Called once at server startup (from server.js).
  */
 const connectDB = async () => {
-  try {
-    // Check if a real MongoDB URI was provided in .env
-    if (process.env.MONGODB_URI && process.env.MONGODB_URI.startsWith("mongodb")) {
-      // Connect to the real MongoDB database
-      const conn = await mongoose.connect(process.env.MONGODB_URI);
-      console.log(`MongoDB connected: ${conn.connection.host}`);
-    } else {
-      // No URI provided → start an in-memory MongoDB server
-      // This is perfect for local development without installing MongoDB
-      mongoServer = await MongoMemoryServer.create();
-      const uri = mongoServer.getUri(); // Get the temporary connection string
-      const conn = await mongoose.connect(uri);
-      console.log(`MongoDB In-Memory Server started: ${conn.connection.host}`);
-      console.log("⚠️  Note: Data will reset when the server restarts (development mode)");
-    }
-  } catch (error) {
-    // If connection fails, log the error but DON'T crash the server.
-    // The app can still start; features that need DB will fail gracefully.
-    console.error(`MongoDB connection error: ${error.message}`);
-    console.log("Server will continue running without database connectivity. Some features may not work until the database is accessible.");
+  if (process.env.MONGODB_URI) {
+    const conn = await mongoose.connect(process.env.MONGODB_URI);
+    console.log(`MongoDB connected: ${conn.connection.host}`);
+    return;
   }
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("MONGODB_URI is required in production");
+  }
+
+  mongoServer = await MongoMemoryServer.create();
+  const conn = await mongoose.connect(mongoServer.getUri());
+  console.log(`MongoDB In-Memory Server started: ${conn.connection.host}`);
+  console.warn("Using an in-memory database. Data will be lost when the server stops.");
 };
 
 // ---- GRACEFUL SHUTDOWN ----

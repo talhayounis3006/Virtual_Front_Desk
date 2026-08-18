@@ -39,6 +39,9 @@ const router = express.Router();
  * We create a new Stripe client each time (or could cache it).
  */
 function getStripe() {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error("Stripe is not configured");
+  }
   return new Stripe(process.env.STRIPE_SECRET_KEY);
 }
 
@@ -46,7 +49,7 @@ function getStripe() {
  * POST /api/payments/create-checkout-session
  * PUBLIC — creates a Stripe Checkout Session for a pending booking.
  *
- * Body: { bookingId }
+ * Body: { bookingId, paymentAccessToken }
  * Response: { url, sessionId }
  *
  * The booking must already exist with status "pending".
@@ -54,17 +57,22 @@ function getStripe() {
  */
 router.post("/create-checkout-session", async (req, res) => {
   try {
-    const { bookingId } = req.body;
+    const { bookingId, paymentAccessToken } = req.body;
 
     // Validate bookingId is provided
-    if (!bookingId) {
-      return res.status(400).json({ message: "bookingId is required" });
+    if (!bookingId || !paymentAccessToken) {
+      return res.status(400).json({ message: "Booking payment authorization is required" });
     }
 
     // Load the booking and its business (for the business name)
-    const booking = await Booking.findById(bookingId).populate("business", "name");
+    const booking = await Booking.findOne({
+      _id: bookingId,
+      checkoutToken: paymentAccessToken,
+    })
+      .select("+checkoutToken")
+      .populate("business", "name slug");
     if (!booking) {
-      return res.status(404).json({ message: "Booking not found" });
+      return res.status(404).json({ message: "Booking payment authorization is invalid" });
     }
 
     // Only pending bookings can be paid
@@ -148,15 +156,11 @@ router.post("/webhook", async (req, res) => {
   try {
     const stripe = getStripe();
 
-    if (process.env.STRIPE_WEBHOOK_SECRET && sig) {
-      // Production: verify the webhook signature to ensure the request
-      // really came from Stripe (not a malicious actor)
-      event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-    } else {
-      // Development fallback: parse raw body as JSON (no signature verification)
-      // ⚠️ Only for local testing — never use this in production!
-      event = JSON.parse(req.body.toString());
+    if (!process.env.STRIPE_WEBHOOK_SECRET || !sig) {
+      return res.status(400).json({ message: "Missing Stripe webhook signature" });
     }
+
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
     console.error("Webhook signature verification failed:", err.message);
     return res.status(400).json({ message: `Webhook Error: ${err.message}` });
