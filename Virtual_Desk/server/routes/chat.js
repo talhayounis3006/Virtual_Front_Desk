@@ -41,9 +41,10 @@ import Business from "../models/Business.js";
 import BusinessSettings from "../models/BusinessSettings.js";
 import Booking from "../models/Booking.js";
 // Auth middleware
-import { protect } from "../middleware/auth.js";
+import { protect, authorize } from "../middleware/auth.js";
 // Embedding helpers (semantic search)
 import { generateEmbedding, findRelevantFaqs } from "../services/embeddings.js";
+import { getBusinessForUser } from "../utils/getBusinessForUser.js";
 
 const router = express.Router();
 
@@ -239,7 +240,7 @@ router.post("/", async (req, res) => {
     const id = sessionId || crypto.randomUUID();
 
     // Load existing chat log or create a new one
-    let chatLog = await ChatLog.findOne({ sessionId: id });
+    let chatLog = await ChatLog.findOne({ sessionId: id, business: business._id });
     if (!chatLog) {
       chatLog = await ChatLog.create({
         business: business._id,
@@ -421,7 +422,7 @@ Instructions:
  * This is how the business owner adds knowledge for the AI assistant.
  * Each FAQ is embedded (converted to a vector) for semantic search.
  */
-router.post("/faq", async (req, res) => {
+router.post("/faq", protect, authorize("owner"), async (req, res) => {
   try {
     const { businessSlug, faqs } = req.body;
 
@@ -433,6 +434,9 @@ router.post("/faq", async (req, res) => {
     const business = await Business.findOne({ slug: businessSlug });
     if (!business) {
       return res.status(404).json({ message: "Business not found" });
+    }
+    if (business.owner.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "You cannot update this business's FAQ content" });
     }
 
     // Delete existing FAQs for this business (replace all)
@@ -473,9 +477,14 @@ router.post("/faq", async (req, res) => {
  * GET /api/chat/logs/:businessId — admin view
  * PROTECTED — returns the most recent 50 chat logs for a business.
  */
-router.get("/logs/:businessId", protect, async (req, res) => {
+router.get("/logs/:businessId", protect, authorize("owner", "staff"), async (req, res) => {
   try {
-    const logs = await ChatLog.find({ business: req.params.businessId })
+    const business = await getBusinessForUser(req.user._id);
+    if (!business || business._id.toString() !== req.params.businessId) {
+      return res.status(403).json({ message: "You cannot view this business's chat logs" });
+    }
+
+    const logs = await ChatLog.find({ business: business._id })
       .sort({ createdAt: -1 }) // newest first
       .limit(50);
     res.json(logs);

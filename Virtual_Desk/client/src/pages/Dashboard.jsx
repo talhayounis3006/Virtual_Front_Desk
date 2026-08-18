@@ -172,9 +172,9 @@ export default function Dashboard() {
   }));
 
   return (
-    <div>
+    <div className="dashboard-page">
       {/* Page header with business name + booking page link */}
-      <div className="page-header">
+      <div className="page-header dashboard-heading">
         <div
           style={{
             display: "flex",
@@ -204,9 +204,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="page-body">
+      <div className="page-body dashboard-body">
         {/* ---- STAT CARDS ---- */}
-        <div className="grid grid-4" style={{ marginBottom: "1.5rem" }}>
+        <div className="grid grid-4 dashboard-stats" style={{ marginBottom: "1.5rem" }}>
           <div className="stat-card">
             <div className="stat-icon blue"><CalendarIcon /></div>
             <div className="stat-value">{data.todayBookings}</div>
@@ -234,9 +234,9 @@ export default function Dashboard() {
         </div>
 
         {/* ---- CHARTS ---- */}
-        <div className="grid grid-2" style={{ marginBottom: "1.5rem" }}>
+        <div className="grid grid-2 dashboard-analytics" style={{ marginBottom: "1.5rem" }}>
           {/* Bookings Per Day Line Chart */}
-          <div className="card">
+          <div className="card dashboard-panel">
             <div className="section-header">
               <div className="section-header-icon" style={{ background: "var(--info-light)", color: "var(--info)" }}><ActivityIcon /></div>
               <h3>Bookings Per Day (Last 30 Days)</h3>
@@ -271,7 +271,7 @@ export default function Dashboard() {
           </div>
 
           {/* Bookings by Status Bar Chart */}
-          <div className="card">
+          <div className="card dashboard-panel">
             <div className="section-header">
               <div className="section-header-icon" style={{ background: "#f0eaf5", color: "#7a5a8f" }}><BarChartIcon /></div>
               <h3>Bookings by Status</h3>
@@ -296,9 +296,9 @@ export default function Dashboard() {
         </div>
 
         {/* ---- LISTS ---- */}
-        <div className="grid grid-2">
+        <div className="grid grid-2 dashboard-lists">
           {/* Upcoming Bookings */}
-          <div className="card">
+          <div className="card dashboard-panel">
             <div className="section-header">
               <div className="section-header-icon" style={{ background: "var(--info-light)", color: "var(--info)" }}><UpcomingIcon /></div>
               <h3>Upcoming Bookings</h3>
@@ -313,7 +313,7 @@ export default function Dashboard() {
             )}
             {/* List of upcoming bookings */}
             {data.upcomingBookings?.map((b, i) => (
-              <div key={b._id} className="list-item">
+              <div key={b._id} className="list-item appointment-row">
                 <div className="list-item-info">
                   <div className={`list-item-avatar ${colors[i % colors.length]}`}>
                     {b.customerName?.charAt(0)?.toUpperCase()}
@@ -334,7 +334,7 @@ export default function Dashboard() {
           </div>
 
           {/* Recent Activity */}
-          <div className="card">
+          <div className="card dashboard-panel">
             <div className="section-header">
               <div className="section-header-icon" style={{ background: "#f0eaf5", color: "#7a5a8f" }}><ActivityIcon /></div>
               <h3>Recent Activity</h3>
@@ -349,7 +349,7 @@ export default function Dashboard() {
             )}
             {/* List of recent bookings */}
             {data.recentBookings?.map((b, i) => (
-              <div key={b._id} className="list-item">
+              <div key={b._id} className="list-item appointment-row">
                 <div className="list-item-info">
                   <div className={`list-item-avatar ${colors[(i + 2) % colors.length]}`}>
                     {b.customerName?.charAt(0)?.toUpperCase()}

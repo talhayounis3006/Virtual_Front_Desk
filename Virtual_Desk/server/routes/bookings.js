@@ -24,7 +24,6 @@
 // Express Router
 import express from "express";
 import crypto from "crypto";
-import validator from "validator";
 // Models
 import Booking from "../models/Booking.js";
 import Business from "../models/Business.js";
@@ -32,6 +31,7 @@ import BusinessSettings from "../models/BusinessSettings.js";
 // Auth middleware
 import { protect, authorize } from "../middleware/auth.js";
 import { getBusinessForUser } from "../utils/getBusinessForUser.js";
+import { validatePublicBookingInput } from "../utils/bookingValidation.js";
 
 const router = express.Router();
 
@@ -103,17 +103,9 @@ router.post("/", async (req, res) => {
       req.body;
 
     // 1. Check required fields
-    if (!businessId || !serviceId || !customerName || !customerEmail || !date || !time) {
-      return res.status(400).json({ message: "Missing required fields" });
-    }
-    if (!validator.isEmail(customerEmail) || customerName.trim().length < 2 || customerName.trim().length > 100) {
-      return res.status(400).json({ message: "Please provide a valid name and email address" });
-    }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(new Date(`${date}T00:00:00`).getTime())) {
-      return res.status(400).json({ message: "Please provide a valid booking date" });
-    }
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
-      return res.status(400).json({ message: "Please provide a valid booking time" });
+    const validationError = validatePublicBookingInput(req.body);
+    if (validationError) {
+      return res.status(400).json({ message: validationError });
     }
 
     // 2. Check business exists

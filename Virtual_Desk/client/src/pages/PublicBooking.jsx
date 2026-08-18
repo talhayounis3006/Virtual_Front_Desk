@@ -184,18 +184,19 @@ export default function PublicBooking() {
   if (!business) return <div className="loading-page">Business not found</div>;
 
   return (
-    <div>
+    <main className="public-booking-page">
       {/* Booking hero header */}
-      <div className="booking-hero">
-        <h1>Book with {business.name}</h1>
-        <p>{business.description || "Choose a service and pick a time that works for you"}</p>
+      <div className="booking-hero booking-hero--editorial">
+        <span className="booking-kicker">ONLINE APPOINTMENTS</span>
+        <h1>Reserve time with {business.name}.</h1>
+        <p>{business.description || "Choose a service and find a time that fits your day."}</p>
       </div>
 
       {/* Cancelled payment notice (from Stripe cancel_url) */}
       {cancelled && (
         <div className="booking-form-wrapper">
           <div className="auth-error" style={{ marginBottom: "1rem" }}>
-            <span>⚠️</span> Payment was cancelled. Your booking was not created.
+            <span>⚠️</span> Payment was cancelled. Your time is not confirmed until payment is complete.
           </div>
         </div>
       )}
@@ -203,8 +204,8 @@ export default function PublicBooking() {
       {/* AI chat assistant */}
       <ChatWidget businessSlug={slug} />
 
-      <div className="booking-form-wrapper">
-        <div className="booking-form-card">
+      <div className="booking-form-wrapper booking-flow-wrapper">
+        <div className="booking-form-card booking-flow-card">
           {/* ---- STEP INDICATOR ---- */}
           <div className="booking-steps">
             {STEPS.map((s, i) => (
@@ -418,7 +419,7 @@ export default function PublicBooking() {
           )}
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 

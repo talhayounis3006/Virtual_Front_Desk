@@ -17,6 +17,12 @@ FrontDesk is a MERN application for appointment-based businesses. It provides pu
 
 The client runs on `http://localhost:3000` and proxies API requests to `http://localhost:5000`.
 
+## Verification
+
+- Run `npm test` in `server` for fast validation tests.
+- Run `npm run check` in `server` for server syntax checks.
+- Run `npm run build` in `client` for the production frontend build.
+
 ## Production checklist
 
 - Set `NODE_ENV=production`, `MONGODB_URI`, a long random `JWT_SECRET`, `CLIENT_URL`, Stripe keys, and SMTP credentials.
