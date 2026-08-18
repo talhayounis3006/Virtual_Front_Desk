@@ -71,14 +71,20 @@ if (isProduction && !process.env.JWT_SECRET) {
 // helmet() adds security headers to every response
 app.use(helmet());
 
-// cors() allows the React frontend (running on localhost:3000) to call this API
+// cors() allows the configured frontend to call this API
 const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:3000")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
+
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    const isLocalDevelopmentOrigin =
+      !isProduction && /^https?:\/\/(localhost|127\.0\.0\.1):(3000|3001)$/.test(origin || "");
+
+    if (!origin || allowedOrigins.includes(origin) || isLocalDevelopmentOrigin) {
+      return callback(null, true);
+    }
     return callback(new Error("Origin is not allowed by CORS"));
   },
 }));
